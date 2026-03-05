@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+:root {
+  /* Default to Dark Mode as preferred by User */
+  --background: #0f172a;
+  /* Slate 950 */
+  --foreground: #f8fafc;
+  /* Slate 50 */
+
+  --card: #1e293b;
+  /* Slate 800 */
+  --card-foreground: #f8fafc;
+
+  --popover: #0f172a;
+  --popover-foreground: #f8fafc;
+
+  --primary: #3b82f6;
+  /* Blue 500 */
+  --primary-foreground: #0f172a;
+
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+
+  --muted: #334155;
+  /* Slate 700 */
+  --muted-foreground: #94a3b8;
+  /* Slate 400 */
+
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+
+  --destructive: #ef4444;
+  /* Red 500 */
+  --destructive-foreground: #f8fafc;
+
+  --border: #334155;
+  --input: #334155;
+  --ring: #3b82f6;
+
+  --radius: 0.5rem;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  /* Slate 700 / muted */
+  border-radius: 5px;
+  border: 2px solid #0f172a;
+  /* Match background to create spacing effect */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+  /* Slate 600 */
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}

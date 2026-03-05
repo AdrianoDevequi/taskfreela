@@ -1,0 +1,31 @@
+# Instruções de Instalação (DirectAdmin)
+
+## 1. Upload
+1. Faça upload do arquivo `deploy_package.tar.gz` (NOVO) para a pasta raiz do seu aplicativo no Gerenciador de Arquivos.
+2. Extraia o arquivo (`Extract`).
+    - **Atenção**: Como é um arquivo `.tar.gz`, ele vai extrair mantendo a estrutura de pastas correta (sem criar nomes com barra invertida `\`).
+    - Certifique-se de que o arquivo `server.js` apareça na raiz ou dentro da pasta do projeto.
+
+## 2. Banco de Dados
+1. No DirectAdmin, crie um novo banco de dados MySQL e um usuário.
+2. Abra o phpMyAdmin e importe o arquivo `full_backup.sql` que eu enviei (esse já tem a estrutura e os dados).
+
+## 3. Configuração (.env)
+Crie um arquivo chamado `.env` na raiz do aplicativo com o EXATO conteúdo abaixo:
+
+```env
+DATABASE_URL="mysql://jupitersites_gestao_user:fmAkY96eJudby4pK3u3M@localhost:3306/jupitersites_gestao_bd"
+AUTH_SECRET="fc85d681-4204-4c54-9543-98236d80090f"
+AUTH_TRUST_HOST=true
+NODE_ENV=production
+# Google Credentials (opcional, se for usar)
+GOOGLE_CLIENT_ID="seu_id"
+GOOGLE_CLIENT_SECRET="seu_secret"
+GOOGLE_REDIRECT_URI="https://gestao.jupitersites.com.br/api/auth/google/callback"
+```
+
+## 4. Iniciar
+1. Volte para a tela do Node.js no DirectAdmin.
+2. Defina o arquivo de inicialização como `server.js`.
+3. Clique em "Restart" ou "Start".
+4. Clique em "Abrir" para ver o site.
