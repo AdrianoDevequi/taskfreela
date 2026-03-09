@@ -8,7 +8,16 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 });
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  webpack: (config, { isServer, nextRuntime }) => {
+    // next-pwa throws __dirname is not defined in Edge runtime
+    if (isServer && nextRuntime === "edge") {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      };
+    }
+    return config;
+  },
 };
 
 export default withPWA(nextConfig);
