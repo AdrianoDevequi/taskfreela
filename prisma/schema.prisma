@@ -28,16 +28,17 @@ model account {
 }
 
 model workspace {
-  id           String        @id @default(uuid())
-  name         String
-  slug         String        @unique
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  users        user[]
-  tasks        task[]
-  reminders    reminder[]
-  integrations integration[]
-  projects     project[]
+  id              String            @id @default(uuid())
+  name            String
+  slug            String            @unique
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  members         WorkspaceMember[]
+  activeUsers     user[]            @relation("ActiveWorkspace")
+  tasks           task[]
+  reminders       reminder[]
+  integrations    integration[]
+  projects        project[]
 
   @@map("Workspace")
 }
@@ -110,25 +111,40 @@ model task {
 }
 
 model user {
-  id            String        @id @default(uuid())
-  name          String?
-  email         String?       @unique(map: "User_email_key")
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          String        @default("EMPLOYEE")
-  workspaceId   String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  account       account[]
-  integration   integration[]
-  reminder      reminder[]
-  session       session[]
-  createdTasks  task[]        @relation("TaskCreator")
-  assignedTasks task[]        @relation("TaskAssignee")
-  workspace     workspace?    @relation(fields: [workspaceId], references: [id], onDelete: SetNull, map: "User_workspaceId_fkey")
+  id                String            @id @default(uuid())
+  name              String?
+  email             String?           @unique(map: "User_email_key")
+  emailVerified     DateTime?
+  image             String?
+  password          String?
+  activeWorkspaceId String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  account           account[]
+  integration       integration[]
+  reminder          reminder[]
+  session           session[]
+  createdTasks      task[]            @relation("TaskCreator")
+  assignedTasks     task[]            @relation("TaskAssignee")
+  activeWorkspace   workspace?        @relation("ActiveWorkspace", fields: [activeWorkspaceId], references: [id], onDelete: SetNull)
+  workspaceMembers  WorkspaceMember[]
 
-  @@index([workspaceId], map: "User_workspaceId_idx")
+  @@index([activeWorkspaceId])
+}
+
+model WorkspaceMember {
+  id          String    @id @default(uuid())
+  userId      String
+  workspaceId String
+  role        String    @default("EMPLOYEE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([userId])
+  @@index([workspaceId])
 }
 
 model verificationtoken {

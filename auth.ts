@@ -19,11 +19,21 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
 
                 if (parsedCredentials.success) {
                     const { email, password } = parsedCredentials.data;
-                    const user = await prisma.user.findUnique({ where: { email } });
+                    const user = await prisma.user.findUnique({ 
+                        where: { email },
+                        include: { workspaceMembers: true }
+                    });
                     if (!user || !user.password) return null;
                     const passwordsMatch = await bcrypt.compare(password, user.password);
 
-                    if (passwordsMatch) return user;
+                    if (passwordsMatch) {
+                        const activeMember = user.workspaceMembers.find(m => m.workspaceId === user.activeWorkspaceId);
+                        return {
+                            ...user,
+                            role: activeMember?.role || "EMPLOYEE",
+                            workspaceId: user.activeWorkspaceId
+                        };
+                    }
                 }
 
                 console.log("Invalid credentials");
@@ -32,20 +42,27 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         }),
     ],
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger, session }) {
             if (user) {
                 token.id = user.id;
                 token.role = (user as any).role;
                 token.workspaceId = (user as any).workspaceId;
             }
+
+            if (trigger === "update" && session?.activeWorkspaceId) {
+                token.workspaceId = session.activeWorkspaceId;
+            }
+
             // Refresh role and workspaceId from DB on every token refresh
-            if (token.sub && !token.role) {
+            if (token.sub) {
                 const dbUser = await prisma.user.findUnique({
                     where: { id: token.sub },
+                    include: { workspaceMembers: true }
                 });
                 if (dbUser) {
-                    token.role = dbUser.role;
-                    token.workspaceId = dbUser.workspaceId ?? null;
+                    token.workspaceId = dbUser.activeWorkspaceId ?? null;
+                    const activeMember = dbUser.workspaceMembers.find(m => m.workspaceId === dbUser.activeWorkspaceId);
+                    token.role = activeMember ? activeMember.role : "EMPLOYEE";
                 }
             }
             return token;

@@ -11,11 +11,16 @@ export async function GET() {
         const workspaceId = (session.user as any).workspaceId as string | null;
         if (!workspaceId) return NextResponse.json([]);
 
-        const members = await prisma.user.findMany({
+        const workspaceMembers = await prisma.workspaceMember.findMany({
             where: { workspaceId },
-            select: { id: true, name: true, email: true, image: true, role: true, createdAt: true },
+            include: { user: { select: { id: true, name: true, email: true, image: true, createdAt: true } } },
             orderBy: { createdAt: "asc" },
         });
+
+        const members = workspaceMembers.map(wm => ({
+            ...wm.user,
+            role: wm.role
+        }));
 
         return NextResponse.json(members);
     } catch (error) {
@@ -45,20 +50,29 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "User not found. They must register first." }, { status: 404 });
         }
 
-        if (targetUser.workspaceId && targetUser.workspaceId !== workspaceId) {
-            return NextResponse.json({ error: "User already belongs to another workspace." }, { status: 409 });
+        const existingMember = await prisma.workspaceMember.findUnique({
+            where: { userId_workspaceId: { userId: targetUser.id, workspaceId: workspaceId! } }
+        });
+
+        if (existingMember) {
+            return NextResponse.json({ error: "User already belongs to this workspace." }, { status: 409 });
         }
 
-        const updated = await prisma.user.update({
-            where: { id: targetUser.id },
+        const newMember = await prisma.workspaceMember.create({
             data: {
+                userId: targetUser.id,
                 workspaceId: workspaceId!,
                 role: memberRole || "EMPLOYEE",
             },
-            select: { id: true, name: true, email: true, image: true, role: true },
         });
 
-        return NextResponse.json(updated);
+        return NextResponse.json({
+            id: targetUser.id,
+            name: targetUser.name,
+            email: targetUser.email,
+            image: targetUser.image,
+            role: newMember.role
+        });
     } catch (error) {
         console.error("POST /api/team Error:", error);
         return NextResponse.json({ error: "Failed to add member" }, { status: 500 });
@@ -86,15 +100,26 @@ export async function DELETE(req: Request) {
             return NextResponse.json({ error: "Cannot remove yourself from workspace" }, { status: 400 });
         }
 
-        const targetUser = await prisma.user.findUnique({ where: { id: userId } });
-        if (!targetUser || targetUser.workspaceId !== workspaceId) {
+        const existingMember = await prisma.workspaceMember.findUnique({
+            where: { userId_workspaceId: { userId, workspaceId: workspaceId! } }
+        });
+        
+        if (!existingMember) {
             return NextResponse.json({ error: "User not in your workspace" }, { status: 404 });
         }
 
-        await prisma.user.update({
-            where: { id: userId },
-            data: { workspaceId: null, role: "EMPLOYEE" },
+        await prisma.workspaceMember.delete({
+            where: { id: existingMember.id },
         });
+
+        const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+        if (targetUser?.activeWorkspaceId === workspaceId) {
+            const remaining = await prisma.workspaceMember.findFirst({ where: { userId }});
+            await prisma.user.update({
+                where: { id: userId },
+                data: { activeWorkspaceId: remaining ? remaining.workspaceId : null }
+            });
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

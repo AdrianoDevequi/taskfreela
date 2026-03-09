@@ -4,6 +4,7 @@ import { logout } from "@/app/lib/actions";
 import { LayoutDashboard, Users, User, Settings, LogOut, CheckSquare, BarChart3, Bell, Calendar, Briefcase } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 export default function Sidebar({ user, className, onLinkClick }: { user: any, className?: string, onLinkClick?: () => void }) {
     return (
@@ -17,6 +18,8 @@ export default function Sidebar({ user, className, onLinkClick }: { user: any, c
                     TaskFreela
                 </h1>
             </div>
+
+            <WorkspaceSwitcher />
 
             {/* Navigation */}
             <nav className="flex-1 space-y-2">

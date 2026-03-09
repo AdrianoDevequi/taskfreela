@@ -48,14 +48,21 @@ export async function register(formData: z.infer<typeof RegisterSchema>) {
             data: { name: `Empresa de ${name}`, slug },
         });
 
-        await tx.user.create({
+        const user = await tx.user.create({
             data: {
                 name,
                 email,
                 password: hashedPassword,
-                role: "MANAGER",
-                workspaceId: workspace.id,
+                activeWorkspaceId: workspace.id,
             },
+        });
+
+        await tx.workspaceMember.create({
+            data: {
+                userId: user.id,
+                workspaceId: workspace.id,
+                role: "MANAGER",
+            }
         });
     });
 

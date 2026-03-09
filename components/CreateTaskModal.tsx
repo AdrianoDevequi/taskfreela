@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from "react";
-import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase } from "lucide-react";
+import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users } from "lucide-react";
 import { Task } from "@/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -25,6 +25,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
     const [estimatedTime, setEstimatedTime] = useState("");
     const [projectId, setProjectId] = useState("");
     const [availableProjects, setAvailableProjects] = useState<{id: string, name: string}[]>([]);
+    
+    // Assignee State
+    const [assignedToId, setAssignedToId] = useState("");
+    const [teamMembers, setTeamMembers] = useState<{id: string, name: string, email: string}[]>([]);
 
     useEffect(() => {
         // Fetch projects to populate the select dropdown
@@ -53,6 +57,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                 setDescription("");
                 setEstimatedTime("");
                 setProjectId("");
+                setAssignedToId("");
                 const tomorrow = new Date();
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 setDueDate(tomorrow.toISOString().split("T")[0]);
@@ -135,6 +140,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
             status: taskToEdit ? undefined : "TODO", // Don't reset status on edit
             estimatedTime,
             projectId: projectId || null,
+            assignedToId: assignedToId || null,
         });
 
         if (!taskToEdit) {
@@ -149,6 +155,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         setDescription("");
         setEstimatedTime("");
         setProjectId("");
+        setAssignedToId("");
         setIsEditing(false);
         setIsMagicMode(false);
         onClose();
@@ -356,21 +363,38 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                             </div>
                         </div>
 
-                        {/* Project Row */}
-                        <div className="space-y-1">
-                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                <Briefcase size={14} /> Projeto
-                            </label>
-                            <select
-                                value={projectId}
-                                onChange={(e) => setProjectId(e.target.value)}
-                                className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
-                            >
-                                <option value="" className="text-black dark:text-white bg-white dark:bg-slate-950">Nenhum projeto</option>
-                                {availableProjects.map(p => (
-                                    <option key={p.id} value={p.id} className="text-black dark:text-white bg-white dark:bg-slate-950">{p.name}</option>
-                                ))}
-                            </select>
+                        {/* Project & Assignee Row */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                    <Briefcase size={14} /> Projeto
+                                </label>
+                                <select
+                                    value={projectId}
+                                    onChange={(e) => setProjectId(e.target.value)}
+                                    className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
+                                >
+                                    <option value="" className="text-black dark:text-white bg-white dark:bg-slate-950">Nenhum projeto</option>
+                                    {availableProjects.map(p => (
+                                        <option key={p.id} value={p.id} className="text-black dark:text-white bg-white dark:bg-slate-950">{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                    <Users size={14} /> Responsável
+                                </label>
+                                <select
+                                    value={assignedToId}
+                                    onChange={(e) => setAssignedToId(e.target.value)}
+                                    className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
+                                >
+                                    <option value="" className="text-black dark:text-white bg-white dark:bg-slate-950">Atribuir a mim</option>
+                                    {teamMembers.map(member => (
+                                        <option key={member.id} value={member.id} className="text-black dark:text-white bg-white dark:bg-slate-950">{member.name || member.email}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         {/* Description */}
