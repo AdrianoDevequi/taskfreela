@@ -27,31 +27,51 @@ model account {
   @@index([userId], map: "Account_userId_fkey")
 }
 
+model workspace {
+  id           String        @id @default(uuid())
+  name         String
+  slug         String        @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  users        user[]
+  tasks        task[]
+  reminders    reminder[]
+  integrations integration[]
+
+  @@map("Workspace")
+}
+
 model integration {
-  id           String   @id @default(uuid())
+  id           String     @id @default(uuid())
   provider     String
-  accessToken  String   @db.Text
-  refreshToken String?  @db.Text
+  accessToken  String     @db.Text
+  refreshToken String?    @db.Text
   expiresAt    BigInt?
   calendarId   String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
   accountEmail String?
   userId       String?
-  user         user?    @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Integration_userId_fkey")
+  workspaceId  String?
+  user         user?      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Integration_userId_fkey")
+  workspace    workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade, map: "Integration_workspaceId_fkey")
 
   @@index([userId], map: "Integration_userId_idx")
+  @@index([workspaceId], map: "Integration_workspaceId_idx")
 }
 
 model reminder {
-  id          String   @id @default(uuid())
+  id          String     @id @default(uuid())
   content     String
-  isCompleted Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  isCompleted Boolean    @default(false)
+  createdAt   DateTime   @default(now())
   userId      String?
-  user        user?    @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Reminder_userId_fkey")
+  workspaceId String?
+  user        user?      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Reminder_userId_fkey")
+  workspace   workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade, map: "Reminder_workspaceId_fkey")
 
   @@index([userId], map: "Reminder_userId_idx")
+  @@index([workspaceId], map: "Reminder_workspaceId_idx")
 }
 
 model session {
@@ -65,18 +85,24 @@ model session {
 }
 
 model task {
-  id            Int      @id @default(autoincrement())
+  id            Int        @id @default(autoincrement())
   title         String
-  description   String?  @db.Text
+  description   String?    @db.Text
   dueDate       DateTime
-  status        String   @default("TODO")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  status        String     @default("TODO")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
   estimatedTime String?
   userId        String?
-  user          user?    @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Task_userId_fkey")
+  workspaceId   String?
+  assignedToId  String?
+  user          user?      @relation("TaskCreator", fields: [userId], references: [id], onDelete: Cascade, map: "Task_userId_fkey")
+  assignedTo    user?      @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull, map: "Task_assignedToId_fkey")
+  workspace     workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade, map: "Task_workspaceId_fkey")
 
   @@index([userId], map: "Task_userId_idx")
+  @@index([workspaceId], map: "Task_workspaceId_idx")
+  @@index([assignedToId], map: "Task_assignedToId_idx")
 }
 
 model user {
@@ -86,13 +112,19 @@ model user {
   emailVerified DateTime?
   image         String?
   password      String?
+  role          String        @default("EMPLOYEE")
+  workspaceId   String?
   createdAt     DateTime      @default(now())
-  updatedAt     DateTime @updatedAt
+  updatedAt     DateTime      @updatedAt
   account       account[]
   integration   integration[]
   reminder      reminder[]
   session       session[]
-  task          task[]
+  createdTasks  task[]        @relation("TaskCreator")
+  assignedTasks task[]        @relation("TaskAssignee")
+  workspace     workspace?    @relation(fields: [workspaceId], references: [id], onDelete: SetNull, map: "User_workspaceId_fkey")
+
+  @@index([workspaceId], map: "User_workspaceId_idx")
 }
 
 model verificationtoken {

@@ -28,27 +28,35 @@ export async function register(formData: z.infer<typeof RegisterSchema>) {
     const validatedFields = RegisterSchema.safeParse(formData);
 
     if (!validatedFields.success) {
-        // Return first error message
         return { error: validatedFields.error.issues[0].message };
     }
 
     const { email, password, name } = validatedFields.data;
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const existingUser = await db.user.findUnique({
-        where: { email },
-    });
-
+    const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
         return { error: "Email already in use!" };
     }
 
-    await db.user.create({
-        data: {
-            name,
-            email,
-            password: hashedPassword,
-        },
+    // Generate a unique workspace slug from name + timestamp
+    const slug = `${name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now()}`;
+
+    // Create workspace and user in a transaction
+    await db.$transaction(async (tx) => {
+        const workspace = await tx.workspace.create({
+            data: { name: `Empresa de ${name}`, slug },
+        });
+
+        await tx.user.create({
+            data: {
+                name,
+                email,
+                password: hashedPassword,
+                role: "MANAGER",
+                workspaceId: workspace.id,
+            },
+        });
     });
 
     // Auto-login after registration
@@ -60,6 +68,7 @@ export async function register(formData: z.infer<typeof RegisterSchema>) {
 
     return { success: "User created!" };
 }
+
 
 export async function login(formData: z.infer<typeof LoginSchema>) {
     const validatedFields = LoginSchema.safeParse(formData);

@@ -2,34 +2,28 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 
-// GET: Fetch all tasks
+function getSession() {
+    return auth();
+}
+
+// GET: Fetch all tasks for the user's workspace
 export async function GET() {
     try {
-        const session = await auth();
+        const session = await getSession();
         if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-        if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const workspaceId = (session.user as any).workspaceId as string | null;
+        if (!workspaceId) return NextResponse.json([]);
 
-        let tasks = await prisma.task.findMany({
-            where: { userId: session.user.id },
+        const tasks = await prisma.task.findMany({
+            where: { workspaceId },
             orderBy: { createdAt: "desc" },
+            include: {
+                assignedTo: {
+                    select: { id: true, name: true, email: true, image: true },
+                },
+            },
         });
-
-        // Auto-migration for legacy tasks (Single user migration)
-        if (tasks.length === 0) {
-            const unassignedCount = await prisma.task.count({ where: { userId: null } });
-            if (unassignedCount > 0) {
-                await prisma.task.updateMany({
-                    where: { userId: null },
-                    data: { userId: session.user.id },
-                });
-                // Refetch after migration
-                tasks = await prisma.task.findMany({
-                    where: { userId: session.user.id },
-                    orderBy: { createdAt: "desc" },
-                });
-            }
-        }
 
         return NextResponse.json(tasks);
     } catch (error) {
@@ -38,23 +32,38 @@ export async function GET() {
     }
 }
 
-// POST: Create a new task
+// POST: Create a new task — MANAGER only
 export async function POST(req: Request) {
     try {
-        const session = await auth();
+        const session = await getSession();
         if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+        const role = (session.user as any).role as string;
+        const workspaceId = (session.user as any).workspaceId as string | null;
+
+        if (role !== "MANAGER" && role !== "ADMIN") {
+            return NextResponse.json({ error: "Forbidden: Only managers can create tasks" }, { status: 403 });
+        }
+        if (!workspaceId) {
+            return NextResponse.json({ error: "No workspace assigned" }, { status: 400 });
+        }
+
         const body = await req.json();
-        const { title, description, dueDate, status, estimatedTime } = body;
+        const { title, description, dueDate, status, estimatedTime, assignedToId } = body;
 
         const task = await prisma.task.create({
             data: {
                 title,
                 description,
-                dueDate: new Date(dueDate), // Ensure Date object
+                dueDate: new Date(dueDate),
                 status: status || "TODO",
                 estimatedTime,
                 userId: session.user.id,
+                workspaceId,
+                assignedToId: assignedToId || null,
+            },
+            include: {
+                assignedTo: { select: { id: true, name: true, email: true, image: true } },
             },
         });
 
@@ -65,29 +74,45 @@ export async function POST(req: Request) {
     }
 }
 
-// PUT: Update a task (Status only for now, can be expanded)
+// PUT: Update a task
+// - Status change: ALL workspace members can do this (moving Kanban cards)
+// - Full edit (title, description, date): MANAGER only
 export async function PUT(req: Request) {
     try {
-        const session = await auth();
+        const session = await getSession();
         if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-        const body = await req.json();
-        const { id, status, title, description, dueDate, estimatedTime } = body;
+        const role = (session.user as any).role as string;
+        const workspaceId = (session.user as any).workspaceId as string | null;
 
-        // Ensure ownership
+        const body = await req.json();
+        const { id, status, title, description, dueDate, estimatedTime, assignedToId } = body;
+
+        // Ensure task belongs to same workspace
         const existing = await prisma.task.findUnique({ where: { id: Number(id) } });
-        if (!existing || existing.userId !== session.user.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!existing || existing.workspaceId !== workspaceId) {
+            return NextResponse.json({ error: "Task not found" }, { status: 404 });
+        }
+
+        const isStatusOnlyUpdate = status !== undefined && !title && !description && !dueDate;
+
+        // Employees can only update status (move card on Kanban)
+        if (!isStatusOnlyUpdate && role !== "MANAGER" && role !== "ADMIN") {
+            return NextResponse.json({ error: "Forbidden: Only managers can edit task details" }, { status: 403 });
         }
 
         const task = await prisma.task.update({
             where: { id: Number(id) },
             data: {
-                status,
-                title,
-                description,
-                dueDate: dueDate ? new Date(dueDate) : undefined,
-                estimatedTime
+                ...(status !== undefined && { status }),
+                ...(title !== undefined && { title }),
+                ...(description !== undefined && { description }),
+                ...(dueDate !== undefined && { dueDate: new Date(dueDate) }),
+                ...(estimatedTime !== undefined && { estimatedTime }),
+                ...(assignedToId !== undefined && { assignedToId: assignedToId || null }),
+            },
+            include: {
+                assignedTo: { select: { id: true, name: true, email: true, image: true } },
             },
         });
 
@@ -98,27 +123,29 @@ export async function PUT(req: Request) {
     }
 }
 
-// DELETE: Remove a task
+// DELETE: Remove a task — MANAGER only
 export async function DELETE(req: Request) {
     try {
-        const session = await auth();
+        const session = await getSession();
         if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        const role = (session.user as any).role as string;
+        const workspaceId = (session.user as any).workspaceId as string | null;
+
+        if (role !== "MANAGER" && role !== "ADMIN") {
+            return NextResponse.json({ error: "Forbidden: Only managers can delete tasks" }, { status: 403 });
+        }
 
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
-
         if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
-        // Ensure ownership
         const existing = await prisma.task.findUnique({ where: { id: Number(id) } });
-
-        if (!existing || existing.userId !== session.user.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!existing || existing.workspaceId !== workspaceId) {
+            return NextResponse.json({ error: "Task not found" }, { status: 404 });
         }
 
-        await prisma.task.delete({
-            where: { id: Number(id) }
-        });
+        await prisma.task.delete({ where: { id: Number(id) } });
 
         return NextResponse.json({ success: true });
     } catch (error) {

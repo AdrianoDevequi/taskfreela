@@ -24,7 +24,7 @@ export default function Sidebar({ user, className, onLinkClick }: { user: any, c
                 <NavItem href="/lembretes" icon={Bell} label="Lembretes" onClick={onLinkClick} />
                 <NavItem href="/agenda" icon={Calendar} label="Agenda" onClick={onLinkClick} />
                 <NavItem href="/reports" icon={BarChart3} label="Relatórios" onClick={onLinkClick} />
-                <NavItem href="#" icon={Users} label="Equipe" onClick={onLinkClick} />
+                <NavItem href="/equipe" icon={Users} label="Equipe" onClick={onLinkClick} />
                 <NavItem href="/configuracoes" icon={Settings} label="Configurações" onClick={onLinkClick} />
             </nav>
 
