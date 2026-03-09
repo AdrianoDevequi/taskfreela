@@ -8,4 +8,7 @@ export interface Task {
     status: TaskStatus;
     estimatedTime?: string | null;
     createdAt?: Date | string;
+    projectId?: string | null;
+    project?: { id: string, name: string } | null;
+    assignedTo?: { id: string, name: string, image: string | null } | null;
 }

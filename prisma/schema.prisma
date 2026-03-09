@@ -37,6 +37,7 @@ model workspace {
   tasks        task[]
   reminders    reminder[]
   integrations integration[]
+  projects     project[]
 
   @@map("Workspace")
 }
@@ -96,13 +97,16 @@ model task {
   userId        String?
   workspaceId   String?
   assignedToId  String?
+  projectId     String?
   user          user?      @relation("TaskCreator", fields: [userId], references: [id], onDelete: Cascade, map: "Task_userId_fkey")
   assignedTo    user?      @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull, map: "Task_assignedToId_fkey")
   workspace     workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade, map: "Task_workspaceId_fkey")
+  project       project?   @relation(fields: [projectId], references: [id], onDelete: SetNull, map: "Task_projectId_fkey")
 
   @@index([userId], map: "Task_userId_idx")
   @@index([workspaceId], map: "Task_workspaceId_idx")
   @@index([assignedToId], map: "Task_assignedToId_idx")
+  @@index([projectId], map: "Task_projectId_idx")
 }
 
 model user {
@@ -143,4 +147,19 @@ model Settings {
   notificationPhone String @default("")
 
   @@map("settings")
+}
+
+model project {
+  id          String     @id @default(uuid())
+  name        String
+  description String?    @db.Text
+  status      String     @default("ACTIVE")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  workspaceId String
+  workspace   workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade, map: "Project_workspaceId_fkey")
+  tasks       task[]
+
+  @@index([workspaceId], map: "Project_workspaceId_idx")
+  @@map("Project")
 }

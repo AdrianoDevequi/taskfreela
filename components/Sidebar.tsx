@@ -1,7 +1,7 @@
 "use client";
 
 import { logout } from "@/app/lib/actions";
-import { LayoutDashboard, Users, User, Settings, LogOut, CheckSquare, BarChart3, Bell, Calendar } from "lucide-react";
+import { LayoutDashboard, Users, User, Settings, LogOut, CheckSquare, BarChart3, Bell, Calendar, Briefcase } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -21,6 +21,7 @@ export default function Sidebar({ user, className, onLinkClick }: { user: any, c
             {/* Navigation */}
             <nav className="flex-1 space-y-2">
                 <NavItem href="/dashboard" icon={LayoutDashboard} label="Tarefas / Board" onClick={onLinkClick} />
+                <NavItem href="/projetos" icon={Briefcase} label="Projetos" onClick={onLinkClick} />
                 <NavItem href="/lembretes" icon={Bell} label="Lembretes" onClick={onLinkClick} />
                 <NavItem href="/agenda" icon={Calendar} label="Agenda" onClick={onLinkClick} />
                 <NavItem href="/reports" icon={BarChart3} label="Relatórios" onClick={onLinkClick} />

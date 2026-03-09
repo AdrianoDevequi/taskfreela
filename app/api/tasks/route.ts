@@ -22,6 +22,9 @@ export async function GET() {
                 assignedTo: {
                     select: { id: true, name: true, email: true, image: true },
                 },
+                project: {
+                    select: { id: true, name: true },
+                }
             },
         });
 
@@ -49,7 +52,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { title, description, dueDate, status, estimatedTime, assignedToId } = body;
+        const { title, description, dueDate, status, estimatedTime, assignedToId, projectId } = body;
 
         const task = await prisma.task.create({
             data: {
@@ -61,9 +64,11 @@ export async function POST(req: Request) {
                 userId: session.user.id,
                 workspaceId,
                 assignedToId: assignedToId || null,
+                projectId: projectId || null,
             },
             include: {
                 assignedTo: { select: { id: true, name: true, email: true, image: true } },
+                project: { select: { id: true, name: true } },
             },
         });
 
@@ -86,7 +91,7 @@ export async function PUT(req: Request) {
         const workspaceId = (session.user as any).workspaceId as string | null;
 
         const body = await req.json();
-        const { id, status, title, description, dueDate, estimatedTime, assignedToId } = body;
+        const { id, status, title, description, dueDate, estimatedTime, assignedToId, projectId } = body;
 
         // Ensure task belongs to same workspace
         const existing = await prisma.task.findUnique({ where: { id: Number(id) } });
@@ -110,9 +115,11 @@ export async function PUT(req: Request) {
                 ...(dueDate !== undefined && { dueDate: new Date(dueDate) }),
                 ...(estimatedTime !== undefined && { estimatedTime }),
                 ...(assignedToId !== undefined && { assignedToId: assignedToId || null }),
+                ...(projectId !== undefined && { projectId: projectId || null }),
             },
             include: {
                 assignedTo: { select: { id: true, name: true, email: true, image: true } },
+                project: { select: { id: true, name: true } },
             },
         });
 

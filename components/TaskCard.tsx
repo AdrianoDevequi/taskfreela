@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Task } from "@/types";
-import { Calendar, AlertCircle, Pencil, Trash2, ChevronDown, ChevronUp, Clock } from "lucide-react";
+import { Calendar, AlertCircle, Pencil, Trash2, ChevronDown, ChevronUp, Clock, Briefcase } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -12,8 +12,6 @@ interface TaskCardProps {
 }
 
 export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: TaskCardProps) {
-    const [isExpanded, setIsExpanded] = useState(false);
-
     const dueDate = new Date(task.dueDate);
     const isOverdue = isPast(dueDate) && !isToday(dueDate) && task.status !== 'DONE';
 
@@ -67,8 +65,32 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
                         </span>
                     </div>
 
-                    {/* Time Tag - Moved here for side-by-side layout */}
-                    {task.estimatedTime && (
+                    {/* Project Badge */}
+                    {task.project && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 max-w-[150px] truncate" title={task.project.name}>
+                            <Briefcase size={12} className="shrink-0" />
+                            <span className="truncate">{task.project.name}</span>
+                        </div>
+                    )}
+
+                    {/* Assignee Avatar */}
+                    {task.assignedTo && (
+                        <div className="ml-auto flex items-center gap-2 bg-muted/30 pl-2 pr-3 py-1 rounded-full border border-border/50" title={`Responsável: ${task.assignedTo.name}`}>
+                            {task.assignedTo.image ? (
+                                <img src={task.assignedTo.image} alt={task.assignedTo.name} className="w-5 h-5 rounded-full object-cover" />
+                            ) : (
+                                <div className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] border border-blue-500/30">
+                                    {task.assignedTo.name?.[0]?.toUpperCase() || "U"}
+                                </div>
+                            )}
+                            <span className="text-xs font-medium text-foreground max-w-[80px] truncate">{task.assignedTo.name.split(' ')[0]}</span>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center justify-between w-full">
+                    {/* Time Tag */}
+                    {task.estimatedTime ? (
                         <div className={`
                             flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
                             ${task.estimatedTime === 'Rápido' ? 'bg-green-500/10 text-green-500 border-green-500/20' : ''}
@@ -79,51 +101,51 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
                             <Clock size={12} />
                             {task.estimatedTime}
                         </div>
-                    )}
-                </div>
+                    ) : <div />}
 
-                {/* Quick Actions - Always visible on mobile (touch), hover on desktop */}
-                <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-auto">
-                    {/* Edit */}
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onEdit?.(task); }}
-                        className="p-1.5 hover:bg-primary/10 text-muted-foreground hover:text-primary rounded-md transition-colors"
-                        title="Editar"
-                    >
-                        <Pencil size={14} />
-                    </button>
-
-                    {/* Delete */}
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onDelete?.(task.id); }}
-                        className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-md transition-colors"
-                        title="Excluir"
-                    >
-                        <Trash2 size={14} />
-                    </button>
-
-                    <div className="w-px h-3 bg-border mx-1" />
-
-                    {task.status !== 'DONE' && (
+                    {/* Quick Actions - Always visible on mobile (touch), hover on desktop */}
+                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-auto">
+                        {/* Edit */}
                         <button
-                            onClick={(e) => { e.stopPropagation(); onQuickAction?.(task); }}
-                            title="Concluir"
-                            className="p-1.5 hover:bg-green-500/10 text-muted-foreground hover:text-green-500 rounded-md transition-colors"
-                        >
-                            <div className="w-4 h-4 rounded-full border border-current" />
-                        </button>
-                    )}
-                    {task.status === 'DONE' && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onQuickAction?.(task); }}
-                            title="Reativar"
+                            onClick={(e) => { e.stopPropagation(); onEdit?.(task); }}
                             className="p-1.5 hover:bg-primary/10 text-muted-foreground hover:text-primary rounded-md transition-colors"
+                            title="Editar"
                         >
-                            <div className="w-4 h-4 rounded-full border border-current flex items-center justify-center">
-                                <div className="w-2 h-2 bg-current rounded-full" />
-                            </div>
+                            <Pencil size={14} />
                         </button>
-                    )}
+
+                        {/* Delete */}
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onDelete?.(task.id); }}
+                            className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-md transition-colors"
+                            title="Excluir"
+                        >
+                            <Trash2 size={14} />
+                        </button>
+
+                        <div className="w-px h-3 bg-border mx-1" />
+
+                        {task.status !== 'DONE' && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onQuickAction?.(task); }}
+                                title="Concluir"
+                                className="p-1.5 hover:bg-green-500/10 text-muted-foreground hover:text-green-500 rounded-md transition-colors"
+                            >
+                                <div className="w-4 h-4 rounded-full border border-current" />
+                            </button>
+                        )}
+                        {task.status === 'DONE' && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onQuickAction?.(task); }}
+                                title="Reativar"
+                                className="p-1.5 hover:bg-primary/10 text-muted-foreground hover:text-primary rounded-md transition-colors"
+                            >
+                                <div className="w-4 h-4 rounded-full border border-current flex items-center justify-center">
+                                    <div className="w-2 h-2 bg-current rounded-full" />
+                                </div>
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
