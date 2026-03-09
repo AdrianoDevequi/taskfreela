@@ -14,7 +14,7 @@ export default function Sidebar({ user, className, onLinkClick }: { user: any, c
                     <CheckSquare className="text-primary-foreground w-5 h-5" />
                 </div>
                 <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                    TaskFlow
+                    TaskFreela
                 </h1>
             </div>
 

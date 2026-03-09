@@ -2,8 +2,8 @@ import { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: 'TaskFlow - Gestão de Tarefas',
-        short_name: 'TaskFlow',
+        name: 'TaskFreela - Gestão de Tarefas',
+        short_name: 'TaskFreela',
         description: 'Gerencie suas tarefas de forma simples e eficiente.',
         start_url: '/',
         display: 'standalone',

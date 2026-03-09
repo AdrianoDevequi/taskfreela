@@ -24,7 +24,7 @@ export default function DashboardShell({
                     >
                         <Menu size={24} />
                     </button>
-                    <span className="font-bold text-lg">TaskFlow</span>
+                    <span className="font-bold text-lg">TaskFreela</span>
                 </div>
             </div>
 
