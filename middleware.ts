@@ -1,11 +1,12 @@
-import NextAuth from "next-auth";
-import authConfig from "./auth.config";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const { auth } = NextAuth(authConfig);
-
-export default auth((req) => {
-    const isLoggedIn = !!req.auth;
+export function middleware(req: NextRequest) {
+    // Check both standard and secure (production) NextAuth session cookies
+    const sessionToken = req.cookies.get("authjs.session-token") || req.cookies.get("__Secure-authjs.session-token");
+    const isLoggedIn = !!sessionToken;
     const { pathname } = req.nextUrl;
+    
     console.log(`Middleware: ${pathname} | LoggedIn: ${isLoggedIn}`);
 
     const isOnDashboard = pathname.startsWith('/agenda') ||
@@ -16,19 +17,21 @@ export default auth((req) => {
     const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register');
 
     if (isOnDashboard) {
-        if (isLoggedIn) return;
+        if (isLoggedIn) return NextResponse.next();
         console.log(`Redirecting unauthenticated user from ${pathname} to /login`);
-        return Response.redirect(new URL('/login', req.nextUrl));
+        return NextResponse.redirect(new URL('/login', req.nextUrl));
     }
 
     if (isAuthRoute) {
         if (isLoggedIn) {
             console.log(`Redirecting authenticated user from ${pathname} to /`);
-            return Response.redirect(new URL('/', req.nextUrl));
+            return NextResponse.redirect(new URL('/', req.nextUrl));
         }
-        return;
+        return NextResponse.next();
     }
-});
+    
+    return NextResponse.next();
+}
 
 export const config = {
     matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
