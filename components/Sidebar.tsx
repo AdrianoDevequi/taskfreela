@@ -20,7 +20,7 @@ export default function Sidebar({ user, className, onLinkClick }: { user: any, c
 
             {/* Navigation */}
             <nav className="flex-1 space-y-2">
-                <NavItem href="/" icon={LayoutDashboard} label="Tarefas / Board" onClick={onLinkClick} />
+                <NavItem href="/dashboard" icon={LayoutDashboard} label="Tarefas / Board" onClick={onLinkClick} />
                 <NavItem href="/lembretes" icon={Bell} label="Lembretes" onClick={onLinkClick} />
                 <NavItem href="/agenda" icon={Calendar} label="Agenda" onClick={onLinkClick} />
                 <NavItem href="/reports" icon={BarChart3} label="Relatórios" onClick={onLinkClick} />
