@@ -6,8 +6,17 @@ import "./globals.css";
 const montserrat = Montserrat({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Task Manager",
+  title: "TaskFreela",
   description: "A simple and fast task management system.",
+  icons: {
+    icon: [
+      { url: '/favicon.ico?v=2' },
+      { url: '/icon.png?v=2', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/icons/icon-192.png?v=2' }
+    ]
+  }
 };
 
 export default function RootLayout({
