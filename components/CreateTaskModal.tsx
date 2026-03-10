@@ -283,7 +283,47 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!title || !dueDate) return;
+        if (!title) return;
+        if (!isRecurring && !dueDate) return; // due date is required for non-recurring only
+
+        let finalDueDate = dueDate;
+
+        if (isRecurring) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (recurrencePattern === "DAILY") {
+                const next = new Date(today);
+                next.setDate(next.getDate() + 1);
+                finalDueDate = next.toISOString().split("T")[0];
+            } else if (recurrencePattern === "WEEKLY") {
+                const next = new Date(today);
+                next.setDate(next.getDate() + 7);
+                finalDueDate = next.toISOString().split("T")[0];
+            } else if (recurrencePattern === "MONTHLY") {
+                const next = new Date(today);
+                next.setMonth(next.getMonth() + 1);
+                finalDueDate = next.toISOString().split("T")[0];
+            } else if (recurrencePattern === "CUSTOM_DAYS" && recurrenceDays) {
+                const selectedDays = recurrenceDays.split(',').map(Number);
+                if (selectedDays.length > 0) {
+                    let daysToAdd = 1;
+                    while (daysToAdd <= 7) {
+                        const checkDate = new Date(today);
+                        checkDate.setDate(checkDate.getDate() + daysToAdd);
+                        if (selectedDays.includes(checkDate.getDay())) {
+                            finalDueDate = checkDate.toISOString().split("T")[0];
+                            break;
+                        }
+                        daysToAdd++;
+                    }
+                } else {
+                    const next = new Date(today);
+                    next.setDate(next.getDate() + 1);
+                    finalDueDate = next.toISOString().split("T")[0];
+                }
+            }
+        }
 
         // In Simple Mode, force the assignee to be the current user
         const finalAssigneeId = isSimpleMode ? (session?.user as any)?.id : (assignedToId || null);
@@ -292,7 +332,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         onSave({
             title,
             description,
-            dueDate: new Date(dueDate).toISOString(),
+            dueDate: finalDueDate ? new Date(finalDueDate).toISOString() : new Date().toISOString(),
             status: taskToEdit ? undefined : "TODO", // Don't reset status on edit
             estimatedTime,
             isMandatory: isRecurring ? true : isMandatory,
@@ -596,18 +636,29 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
 
                         {/* Date & Time Row */}
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                    <Calendar size={14} /> Data Limite
-                                </label>
-                                <input
-                                    type="date"
-                                    value={dueDate}
-                                    onChange={(e) => setDueDate(e.target.value)}
-                                    className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground [color-scheme:dark] transition-all"
-                                    required
-                                />
-                            </div>
+                            {!isRecurring ? (
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <Calendar size={14} /> Data Limite
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={dueDate}
+                                        onChange={(e) => setDueDate(e.target.value)}
+                                        className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground [color-scheme:dark] transition-all"
+                                        required
+                                    />
+                                </div>
+                            ) : (
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 opacity-50">
+                                        <Calendar size={14} /> Próxima Entrega
+                                    </label>
+                                    <div className="w-full bg-muted/30 border border-input border-dashed rounded-xl px-3 py-2 text-sm text-muted-foreground flex items-center h-[38px] cursor-not-allowed">
+                                        Automático
+                                    </div>
+                                </div>
+                            )}
                             <div className="space-y-1">
                                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                                     <Clock size={14} /> Tempo
