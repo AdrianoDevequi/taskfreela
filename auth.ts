@@ -61,6 +61,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                 });
                 if (dbUser) {
                     token.workspaceId = dbUser.activeWorkspaceId ?? null;
+                    token.whatsapp = (dbUser as any).whatsapp;
                     const activeMember = dbUser.workspaceMembers.find(m => m.workspaceId === dbUser.activeWorkspaceId);
                     token.role = activeMember ? activeMember.role : "EMPLOYEE";
                 }
@@ -72,6 +73,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                 session.user.id = token.sub;
                 (session.user as any).role = token.role;
                 (session.user as any).workspaceId = token.workspaceId;
+                (session.user as any).whatsapp = token.whatsapp;
             }
             return session;
         },

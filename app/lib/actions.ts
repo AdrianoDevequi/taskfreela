@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signIn, signOut, auth } from '@/auth';
 import { AuthError } from 'next-auth';
+import { revalidatePath } from 'next/cache';
 
 const PasswordSchema = z.string()
     .min(8, 'Password must be at least 8 characters')
@@ -172,8 +173,7 @@ export async function updateProfile(formData: z.infer<typeof UpdateProfileSchema
             data: updateData,
         });
 
-        // Revalidate to update UI name/email
-        // revalidatePath('/', 'layout'); // Optional: force refresh
+        revalidatePath("/", "layout");
         return { success: "Profile updated successfully!" };
     } catch (error) {
         console.error("Profile Update Error:", error);
