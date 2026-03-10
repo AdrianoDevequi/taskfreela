@@ -6,13 +6,15 @@ import CreateTaskModal from "@/components/CreateTaskModal";
 import MobileFAB from "@/components/MobileFAB";
 import { UpcomingEventsWidget } from "@/components/UpcomingEventsWidget";
 import { Task } from "@/types";
-import { Plus, Sparkles, Zap, ZapOff } from "lucide-react";
+import { Plus, Sparkles, Zap, ZapOff, Users } from "lucide-react";
 import { useSimpleMode } from "@/app/context/SimpleModeContext";
+import { useTeamTasks } from "@/app/context/TeamTasksContext";
 import { useSession } from "next-auth/react";
 
 export default function Home() {
   const { data: session } = useSession();
   const { isSimpleMode, toggleSimpleMode } = useSimpleMode();
+  const { showTeamTasks, toggleTeamTasks } = useTeamTasks();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -114,6 +116,23 @@ export default function Home() {
               {isSimpleMode ? <Zap size={14} className="fill-green-500" /> : <ZapOff size={14} />}
               <span>Modo Simples</span>
             </button>
+            
+            {!isSimpleMode && (
+              <button
+                onClick={toggleTeamTasks}
+                className={`
+                  flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all
+                  ${showTeamTasks 
+                    ? 'bg-blue-500/10 text-blue-500 border border-blue-500/30' 
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/50'
+                  }
+                `}
+                title={showTeamTasks ? "Ocultar Equipe" : "Mostrar Equipe"}
+              >
+                <Users size={14} className={showTeamTasks ? "text-blue-500" : ""} />
+                <span>Equipe</span>
+              </button>
+            )}
           </div>
         </div>
         <div className="hidden md:flex items-center gap-3 w-full md:w-auto">
@@ -135,7 +154,11 @@ export default function Home() {
       </div>
 
       <TaskBoard
-        tasks={isSimpleMode ? tasks.filter(t => t.assignedTo?.id === session?.user?.id) : tasks}
+        tasks={
+          isSimpleMode || !showTeamTasks
+            ? tasks.filter(t => t.assignedTo?.id === session?.user?.id) 
+            : tasks
+        }
         onTaskMove={handleTaskMove}
         onQuickAction={handleQuickAction}
         onEdit={handleEditTask}

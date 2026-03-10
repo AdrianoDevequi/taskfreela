@@ -221,3 +221,25 @@ export async function updateNotificationPreferences(formData: {
         return { error: "Failed to update preferences." };
     }
 }
+
+export async function updateTeamTasksPreference(showTeamTasks: boolean) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { error: "Unauthorized" };
+    }
+
+    try {
+        await prisma.user.update({
+            where: { id: session.user.id },
+            data: { showTeamTasks },
+        });
+
+        // We don't necessarily need to revalidate path here since the local state updates optimistically,
+        // but it ensures fresh data on next traditional navigation
+        revalidatePath("/dashboard");
+        return { success: true };
+    } catch (error) {
+        console.error("Team Tasks Preference Update Error:", error);
+        return { error: "Failed to update team tasks preference." };
+    }
+}
