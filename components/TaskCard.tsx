@@ -42,13 +42,44 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
                 {task.title}
             </h3>
 
-            {task.description && (
-                <div className="mb-4 flex-1">
-                    <p className="text-sm text-gray-400 leading-relaxed max-w-full break-words line-clamp-3">
-                        {task.description}
-                    </p>
-                </div>
-            )}
+            {task.description && (() => {
+                // Extract image URLs from markdown `![...](url)` syntax
+                const imageRegex = /!\[.*?\]\((.*?)\)/g;
+                const images: string[] = [];
+                let match;
+                while ((match = imageRegex.exec(task.description)) !== null) {
+                    images.push(match[1]);
+                }
+                // Clean text: remove the markdown image syntax
+                const cleanText = task.description.replace(/!\[.*?\]\(.*?\)/g, '').trim();
+
+                return (
+                    <div className="mb-4 flex-1">
+                        {cleanText && (
+                            <p className="text-sm text-gray-400 leading-relaxed max-w-full break-words line-clamp-2 mb-2">
+                                {cleanText}
+                            </p>
+                        )}
+                        {images.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                                {images.slice(0, 5).map((src, i) => (
+                                    <img
+                                        key={i}
+                                        src={src}
+                                        alt="preview"
+                                        className="w-10 h-10 object-cover rounded-md border border-white/10"
+                                    />
+                                ))}
+                                {images.length > 5 && (
+                                    <div className="w-10 h-10 rounded-md bg-muted/50 border border-white/10 flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                                        +{images.length - 5}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             <div className="flex flex-col gap-2 mt-auto w-full">
                 <div className="flex items-center gap-2 flex-wrap">
