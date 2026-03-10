@@ -434,14 +434,33 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                                         remarkPlugins={[remarkGfm]}
                                         components={{
                                             img: ({node, ...props}) => (
-                                                <img 
-                                                    {...props} 
+                                                <span
+                                                    role="button"
                                                     onClick={() => setZoomedImage((props.src as string) || null)}
-                                                    alt={props.alt || "Task Image"}
-                                                    style={{ maxHeight: '150px', width: 'auto', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', display: 'inline-block', marginRight: '8px', verticalAlign: 'middle', transition: 'transform 0.2s' }}
-                                                    onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.03)')}
-                                                    onMouseOut={e => (e.currentTarget.style.transform = 'scale(1)')}
-                                                />
+                                                    title="Clique para ampliar"
+                                                    style={{
+                                                        display: 'inline-block',
+                                                        width: '72px',
+                                                        height: '72px',
+                                                        marginRight: '8px',
+                                                        marginBottom: '8px',
+                                                        verticalAlign: 'middle',
+                                                        cursor: 'pointer',
+                                                        borderRadius: '8px',
+                                                        overflow: 'hidden',
+                                                        border: '2px solid rgba(255,255,255,0.1)',
+                                                        flexShrink: 0,
+                                                        transition: 'border-color 0.15s',
+                                                    }}
+                                                    onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(99,102,241,0.7)'; }}
+                                                    onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                                                >
+                                                    <img
+                                                        src={props.src}
+                                                        alt={props.alt || 'imagem'}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                                    />
+                                                </span>
                                             )
                                         }}
                                     >
