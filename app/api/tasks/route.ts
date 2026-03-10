@@ -88,7 +88,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { title, description, dueDate, status, estimatedTime, assignedToId, projectId } = body;
+        const { title, description, dueDate, status, estimatedTime, assignedToId, projectId, isMandatory, isRecurring, recurrencePattern, recurrenceDays } = body;
 
         const task = await prisma.task.create({
             data: {
@@ -101,6 +101,10 @@ export async function POST(req: Request) {
                 workspaceId,
                 assignedToId: assignedToId || null,
                 projectId: projectId || null,
+                isMandatory: typeof isMandatory === 'boolean' ? isMandatory : false,
+                isRecurring: typeof isRecurring === 'boolean' ? isRecurring : false,
+                recurrencePattern: recurrencePattern || null,
+                recurrenceDays: recurrenceDays || null,
             },
             include: {
                 assignedTo: { select: { id: true, name: true, email: true, image: true } },
@@ -132,7 +136,7 @@ export async function PUT(req: Request) {
         const workspaceId = (session.user as any).workspaceId as string | null;
 
         const body = await req.json();
-        const { id, status, title, description, dueDate, estimatedTime, assignedToId, projectId } = body;
+        const { id, status, title, description, dueDate, estimatedTime, assignedToId, projectId, isMandatory, isRecurring, recurrencePattern, recurrenceDays } = body;
 
         // Ensure task belongs to same workspace
         const existing = await prisma.task.findUnique({ where: { id: Number(id) } });
@@ -157,6 +161,10 @@ export async function PUT(req: Request) {
                 ...(estimatedTime !== undefined && { estimatedTime }),
                 ...(assignedToId !== undefined && { assignedToId: assignedToId || null }),
                 ...(projectId !== undefined && { projectId: projectId || null }),
+                ...(isMandatory !== undefined && { isMandatory }),
+                ...(isRecurring !== undefined && { isRecurring }),
+                ...(recurrencePattern !== undefined && { recurrencePattern }),
+                ...(recurrenceDays !== undefined && { recurrenceDays }),
             },
             include: {
                 assignedTo: { select: { id: true, name: true, email: true, image: true } },

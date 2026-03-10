@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Task } from "@/types";
-import { Calendar, AlertCircle, Pencil, Trash2, ChevronDown, ChevronUp, Clock, Briefcase } from "lucide-react";
+import { Calendar, AlertCircle, Pencil, Trash2, ChevronDown, ChevronUp, Clock, Briefcase, Repeat } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -115,6 +115,21 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
                         `} title={task.estimatedTime}>
                             <Clock size={10} />
                             <span className="hidden sm:inline-block truncate max-w-[60px]">{task.estimatedTime}</span>
+                        </div>
+                    )}
+
+                    {/* Recurrence Badge */}
+                    {task.isRecurring && (
+                        <div className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shrink-0" title="Tarefa Recorrente">
+                            <Repeat size={10} className="shrink-0" />
+                            <span className="hidden sm:inline-block truncate max-w-[80px]">
+                                {task.recurrencePattern === 'DAILY' && 'Diário'}
+                                {task.recurrencePattern === 'WEEKLY' && 'Semanal'}
+                                {task.recurrencePattern === 'MONTHLY' && 'Mensal'}
+                                {task.recurrencePattern === 'CUSTOM_DAYS' && task.recurrenceDays && (
+                                    task.recurrenceDays.split(',').map(d => ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][parseInt(d)]).join(', ')
+                                )}
+                            </span>
                         </div>
                     )}
 
