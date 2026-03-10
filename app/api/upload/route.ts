@@ -8,6 +8,7 @@ export async function POST(req: Request) {
     try {
         const formData = await req.formData();
         const file = formData.get("file") as File | null;
+        const raw = formData.get("raw") === "true";
 
         if (!file) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -17,11 +18,11 @@ export async function POST(req: Request) {
         const arrayBuffer = await file.arrayBuffer();
         let buffer: Buffer = Buffer.from(arrayBuffer as ArrayBuffer);
 
-        // Process image if it's an image file
+        // Process image if it's an image file and not explicitly raw
         let isImage = file.type.startsWith("image/");
         let finalExtension = file.name.substring(file.name.lastIndexOf("."));
         
-        if (isImage) {
+        if (isImage && !raw) {
             // Compress and convert to WebP
             buffer = await sharp(buffer)
                 .resize(1920, 1920, { fit: "inside", withoutEnlargement: true }) // Max 1920px dimensions

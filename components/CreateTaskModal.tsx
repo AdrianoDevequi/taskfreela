@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from "react";
-import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users, MessageSquare, Send } from "lucide-react";
+import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users, MessageSquare, Send, Paperclip } from "lucide-react";
 import { Task } from "@/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -198,10 +198,11 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         }
     };
 
-    const uploadImageToDescription = async (file: File) => {
+    const uploadImageToDescription = async (file: File, options?: { raw?: boolean }) => {
         setIsUploadingImage(true);
         const formData = new FormData();
         formData.append("file", file);
+        if (options?.raw) formData.append("raw", "true");
 
         try {
             const res = await fetch("/api/upload", {
@@ -211,7 +212,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
             const data = await res.json();
 
             if (data.url) {
-                const markdownImage = `\n![imagem](${data.url})\n`;
+                const isImage = file.type.startsWith('image/');
+                const markdownImage = isImage ? `\n![imagem](${data.url})\n` : `\n[📥 ${file.name}](${data.url})\n`;
                 const textarea = document.getElementById('task-description-textarea') as HTMLTextAreaElement;
                 
                 if (textarea) {
@@ -239,6 +241,14 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         } finally {
             setIsUploadingImage(false);
         }
+    };
+
+    const handleAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            await uploadImageToDescription(file, { raw: true });
+        }
+        if (e.target) e.target.value = ''; // Reset input
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -572,9 +582,15 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
 
                         {/* Description */}
                         <div className="space-y-1">
-                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                <AlignLeft size={14} /> Descrição
-                            </label>
+                            <div className="flex justify-between items-center pr-2">
+                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                    <AlignLeft size={14} /> Descrição
+                                </label>
+                                <label title="Anexar arquivo em tamanho original" className="cursor-pointer text-xs font-bold text-primary hover:text-primary/80 flex items-center gap-1.5 transition-colors uppercase tracking-wider">
+                                    <Paperclip size={14} /> Anexar Arquivo
+                                    <input type="file" className="hidden" onChange={handleAttachmentChange} />
+                                </label>
+                            </div>
                             <div className="relative">
                                 <textarea
                                     id="task-description-textarea"
