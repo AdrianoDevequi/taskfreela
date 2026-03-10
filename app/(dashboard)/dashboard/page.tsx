@@ -6,9 +6,13 @@ import CreateTaskModal from "@/components/CreateTaskModal";
 import MobileFAB from "@/components/MobileFAB";
 import { UpcomingEventsWidget } from "@/components/UpcomingEventsWidget";
 import { Task } from "@/types";
-import { Plus, Sparkles } from "lucide-react";
+import { Plus, Sparkles, Zap, ZapOff } from "lucide-react";
+import { useSimpleMode } from "@/app/context/SimpleModeContext";
+import { useSession } from "next-auth/react";
 
 export default function Home() {
+  const { data: session } = useSession();
+  const { isSimpleMode, toggleSimpleMode } = useSimpleMode();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,9 +96,25 @@ export default function Home() {
           <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
             Centro de Controle
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm md:text-base">
-            Gerencie suas tarefas de forma simples.
-          </p>
+          <div className="flex items-center gap-4 mt-2">
+            <p className="text-muted-foreground text-sm md:text-base">
+              Gerencie suas tarefas de forma simples.
+            </p>
+            <button
+              onClick={toggleSimpleMode}
+              className={`
+                flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all
+                ${isSimpleMode 
+                  ? 'bg-green-500/10 text-green-500 border border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.2)]' 
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/50'
+                }
+              `}
+              title={isSimpleMode ? "Desativar Modo Simples" : "Ativar Modo Simples"}
+            >
+              {isSimpleMode ? <Zap size={14} className="fill-green-500" /> : <ZapOff size={14} />}
+              <span>Modo Simples</span>
+            </button>
+          </div>
         </div>
         <div className="hidden md:flex items-center gap-3 w-full md:w-auto">
           <button
@@ -115,7 +135,7 @@ export default function Home() {
       </div>
 
       <TaskBoard
-        tasks={tasks}
+        tasks={isSimpleMode ? tasks.filter(t => t.assignedToId === session?.user?.id) : tasks}
         onTaskMove={handleTaskMove}
         onQuickAction={handleQuickAction}
         onEdit={handleEditTask}

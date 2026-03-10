@@ -2,6 +2,7 @@
 import DashboardShell from "@/components/DashboardShell";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { SimpleModeProvider } from "@/app/context/SimpleModeContext";
 
 export default async function DashboardLayout({
     children,
@@ -15,8 +16,10 @@ export default async function DashboardLayout({
     }
 
     return (
-        <DashboardShell user={session.user}>
-            {children}
-        </DashboardShell>
+        <SimpleModeProvider>
+            <DashboardShell user={session.user}>
+                {children}
+            </DashboardShell>
+        </SimpleModeProvider>
     );
 }

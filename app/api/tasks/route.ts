@@ -106,8 +106,8 @@ export async function POST(req: Request) {
         });
 
         if (task.assignedToId && task.assignedToId !== session.user.id) {
-            // Trigger WhatsApp notification off-main-thread
-            sendTaskAssignmentNotification(task.id, task.assignedToId);
+            // Await is required on Vercel so the serverless function doesn't termianate early
+            await sendTaskAssignmentNotification(task.id, task.assignedToId);
         }
 
         return NextResponse.json(task);
@@ -163,7 +163,8 @@ export async function PUT(req: Request) {
 
         // Trigger notification if assignedTo was changed and it's not a self-assignment
         if (assignedToId && assignedToId !== existing.assignedToId && assignedToId !== session.user.id) {
-            sendTaskAssignmentNotification(task.id, assignedToId);
+            // Await is required on Vercel
+            await sendTaskAssignmentNotification(task.id, assignedToId);
         }
 
         return NextResponse.json(task);

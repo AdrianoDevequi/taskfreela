@@ -5,8 +5,11 @@ import { LayoutDashboard, Users, User, Settings, LogOut, CheckSquare, BarChart3,
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import { useSimpleMode } from "@/app/context/SimpleModeContext";
 
 export default function Sidebar({ user, className, onLinkClick }: { user: any, className?: string, onLinkClick?: () => void }) {
+    const { isSimpleMode } = useSimpleMode();
+
     return (
         <aside className={`w-64 bg-card border-r border-border h-screen flex flex-col p-4 ${className}`}>
             {/* Logo / Brand */}
@@ -22,11 +25,11 @@ export default function Sidebar({ user, className, onLinkClick }: { user: any, c
             {/* Navigation */}
             <nav className="flex-1 space-y-2">
                 <NavItem href="/dashboard" icon={LayoutDashboard} label="Tarefas / Board" onClick={onLinkClick} />
-                <NavItem href="/projetos" icon={Briefcase} label="Projetos" onClick={onLinkClick} />
+                {!isSimpleMode && <NavItem href="/projetos" icon={Briefcase} label="Projetos" onClick={onLinkClick} />}
                 <NavItem href="/lembretes" icon={Bell} label="Lembretes" onClick={onLinkClick} />
                 <NavItem href="/agenda" icon={Calendar} label="Agenda" onClick={onLinkClick} />
                 <NavItem href="/reports" icon={BarChart3} label="Relatórios" onClick={onLinkClick} />
-                <NavItem href="/equipe" icon={Users} label="Equipe" onClick={onLinkClick} />
+                {!isSimpleMode && <NavItem href="/equipe" icon={Users} label="Equipe" onClick={onLinkClick} />}
                 <NavItem href="/configuracoes" icon={Settings} label="Configurações" onClick={onLinkClick} />
             </nav>
 

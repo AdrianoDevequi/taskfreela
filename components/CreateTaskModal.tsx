@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useSimpleMode } from "@/app/context/SimpleModeContext";
 import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users, MessageSquare, Send, Paperclip } from "lucide-react";
 import { Task } from "@/types";
 import { format } from "date-fns";
@@ -17,6 +18,7 @@ interface CreateTaskModalProps {
 
 export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, startWithMagic = false }: CreateTaskModalProps) {
     const { data: session } = useSession();
+    const { isSimpleMode } = useSimpleMode();
     const [isEditing, setIsEditing] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [isMagicMode, setIsMagicMode] = useState(false);
@@ -269,14 +271,18 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         e.preventDefault();
         if (!title || !dueDate) return;
 
+        // In Simple Mode, force the assignee to be the current user
+        const finalAssigneeId = isSimpleMode ? (session?.user as any)?.id : (assignedToId || null);
+        const finalProjectId = isSimpleMode ? null : (projectId || null);
+
         onSave({
             title,
             description,
             dueDate: new Date(dueDate).toISOString(),
             status: taskToEdit ? undefined : "TODO", // Don't reset status on edit
             estimatedTime,
-            projectId: projectId || null,
-            assignedToId: assignedToId || null,
+            projectId: finalProjectId,
+            assignedToId: finalAssigneeId,
         });
 
         if (!taskToEdit) {
@@ -608,39 +614,41 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                             </div>
                         </div>
 
-                        {/* Project & Assignee Row */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                    <Briefcase size={14} /> Projeto
-                                </label>
-                                <select
-                                    value={projectId}
-                                    onChange={(e) => setProjectId(e.target.value)}
-                                    className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
-                                >
-                                    <option value="" className="text-black dark:text-white bg-white dark:bg-slate-950">Nenhum projeto</option>
-                                    {availableProjects.map(p => (
-                                        <option key={p.id} value={p.id} className="text-black dark:text-white bg-white dark:bg-slate-950">{p.name}</option>
-                                    ))}
-                                </select>
+                        {/* Project & Assignee Row - Hidden in Simple Mode */}
+                        {!isSimpleMode && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <Briefcase size={14} /> Projeto
+                                    </label>
+                                    <select
+                                        value={projectId}
+                                        onChange={(e) => setProjectId(e.target.value)}
+                                        className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
+                                    >
+                                        <option value="" className="text-black dark:text-white bg-white dark:bg-slate-950">Nenhum projeto</option>
+                                        {availableProjects.map(p => (
+                                            <option key={p.id} value={p.id} className="text-black dark:text-white bg-white dark:bg-slate-950">{p.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <Users size={14} /> Responsável
+                                    </label>
+                                    <select
+                                        value={assignedToId}
+                                        onChange={(e) => setAssignedToId(e.target.value)}
+                                        className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
+                                    >
+                                        <option value="" className="text-black dark:text-white bg-white dark:bg-slate-950">Atribuir a mim</option>
+                                        {teamMembers.map(member => (
+                                            <option key={member.id} value={member.id} className="text-black dark:text-white bg-white dark:bg-slate-950">{member.name || member.email}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                    <Users size={14} /> Responsável
-                                </label>
-                                <select
-                                    value={assignedToId}
-                                    onChange={(e) => setAssignedToId(e.target.value)}
-                                    className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
-                                >
-                                    <option value="" className="text-black dark:text-white bg-white dark:bg-slate-950">Atribuir a mim</option>
-                                    {teamMembers.map(member => (
-                                        <option key={member.id} value={member.id} className="text-black dark:text-white bg-white dark:bg-slate-950">{member.name || member.email}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
+                        )}
 
                         {/* Description */}
                         <div className="space-y-1">
