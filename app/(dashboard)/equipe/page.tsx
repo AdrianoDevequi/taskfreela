@@ -11,6 +11,8 @@ interface Member {
     role: string;
 }
 
+import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher';
+
 export default function EquipePage() {
     const [members, setMembers] = useState<Member[]>([]);
     const [loading, setLoading] = useState(true);
@@ -86,16 +88,22 @@ export default function EquipePage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto">
-            {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent flex items-center gap-3">
-                    <Users size={28} className="text-blue-400" />
-                    Gerenciar Equipe
-                </h1>
-                <p className="text-muted-foreground mt-1 text-sm">
-                    Adicione e gerencie os membros do seu workspace.
-                </p>
+        <div className="max-w-4xl mx-auto flex flex-col gap-8 pb-10">
+            {/* Header / Workspace Switcher area */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent flex items-center gap-3">
+                        <Users size={28} className="text-blue-400" />
+                        Gerenciar Equipe
+                    </h1>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                        Adicione e gerencie os membros do seu workspace.
+                    </p>
+                </div>
+                
+                <div className="w-full md:w-64">
+                    <WorkspaceSwitcher />
+                </div>
             </div>
 
             {/* Invite Form */}

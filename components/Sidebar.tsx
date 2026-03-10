@@ -19,8 +19,6 @@ export default function Sidebar({ user, className, onLinkClick }: { user: any, c
                 </h1>
             </div>
 
-            <WorkspaceSwitcher />
-
             {/* Navigation */}
             <nav className="flex-1 space-y-2">
                 <NavItem href="/dashboard" icon={LayoutDashboard} label="Tarefas / Board" onClick={onLinkClick} />
