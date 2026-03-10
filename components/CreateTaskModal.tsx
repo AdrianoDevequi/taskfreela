@@ -292,18 +292,25 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
+            const formatDateLocal = (d: Date) => {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            };
+
             if (recurrencePattern === "DAILY") {
                 const next = new Date(today);
                 next.setDate(next.getDate() + 1);
-                finalDueDate = next.toISOString().split("T")[0];
+                finalDueDate = formatDateLocal(next);
             } else if (recurrencePattern === "WEEKLY") {
                 const next = new Date(today);
                 next.setDate(next.getDate() + 7);
-                finalDueDate = next.toISOString().split("T")[0];
+                finalDueDate = formatDateLocal(next);
             } else if (recurrencePattern === "MONTHLY") {
                 const next = new Date(today);
                 next.setMonth(next.getMonth() + 1);
-                finalDueDate = next.toISOString().split("T")[0];
+                finalDueDate = formatDateLocal(next);
             } else if (recurrencePattern === "CUSTOM_DAYS" && recurrenceDays) {
                 const selectedDays = recurrenceDays.split(',').map(Number);
                 if (selectedDays.length > 0) {
@@ -312,7 +319,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                         const checkDate = new Date(today);
                         checkDate.setDate(checkDate.getDate() + daysToAdd);
                         if (selectedDays.includes(checkDate.getDay())) {
-                            finalDueDate = checkDate.toISOString().split("T")[0];
+                            finalDueDate = formatDateLocal(checkDate);
                             break;
                         }
                         daysToAdd++;
@@ -320,7 +327,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                 } else {
                     const next = new Date(today);
                     next.setDate(next.getDate() + 1);
-                    finalDueDate = next.toISOString().split("T")[0];
+                    finalDueDate = formatDateLocal(next);
                 }
             }
         }
@@ -332,7 +339,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         onSave({
             title,
             description,
-            dueDate: finalDueDate ? new Date(finalDueDate).toISOString() : new Date().toISOString(),
+            // Appending T12:00:00 forces noon in local time. 
+            // This prevents Date parsing from defaulting to UTC midnight, 
+            // which becomes 21:00 on the previous day in Brazil (UTC-3).
+            dueDate: finalDueDate ? new Date(`${finalDueDate}T12:00:00`).toISOString() : new Date().toISOString(),
             status: taskToEdit ? undefined : "TODO", // Don't reset status on edit
             estimatedTime,
             isMandatory: isRecurring ? true : isMandatory,
