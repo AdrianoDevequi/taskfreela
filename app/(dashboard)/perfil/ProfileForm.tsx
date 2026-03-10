@@ -89,6 +89,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
                 <input
                     type="password"
                     disabled={isPending}
+                    autoComplete="new-password"
                     placeholder="Deixe em branco para não alterar"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
