@@ -10,6 +10,7 @@ interface ProfileFormProps {
         name?: string | null;
         email?: string | null;
         image?: string | null;
+        whatsapp?: string | null;
     }
 }
 
@@ -22,6 +23,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
     const [formData, setFormData] = useState({
         name: user.name || "",
         email: user.email || "",
+        whatsapp: user.whatsapp || "",
         password: "",
     });
 
@@ -66,6 +68,18 @@ export function ProfileForm({ user }: ProfileFormProps) {
                     disabled={isPending}
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 text-white focus:ring-2 focus:ring-purple-500 outline-none transition"
+                />
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-200">WhatsApp</label>
+                <input
+                    type="text"
+                    disabled={isPending}
+                    placeholder="Ex: 5511999999999"
+                    value={formData.whatsapp}
+                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                     className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 text-white focus:ring-2 focus:ring-purple-500 outline-none transition"
                 />
             </div>

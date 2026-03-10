@@ -140,6 +140,7 @@ model user {
   integration       integration[]
   reminder          reminder[]
   session           session[]
+  whatsapp          String?
   createdTasks      task[]            @relation("TaskCreator")
   assignedTasks     task[]            @relation("TaskAssignee")
   activeWorkspace   workspace?        @relation("ActiveWorkspace", fields: [activeWorkspaceId], references: [id], onDelete: SetNull)

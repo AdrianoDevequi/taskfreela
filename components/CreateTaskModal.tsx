@@ -424,67 +424,66 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
 
                         {/* Description - Highlighted & Readable */}
                         <div className="bg-muted/30 rounded-xl p-6 border border-border/50 min-h-[120px] max-h-[65vh] overflow-y-auto">
-                            {description ? (
-                                <div className="text-sm leading-relaxed text-foreground/90 font-medium 
-                                    prose dark:prose-invert max-w-none 
-                                    prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-                                    prose-p:mb-4 last:prose-p:mb-0
-                                ">
-                                    <ReactMarkdown 
-                                        remarkPlugins={[remarkGfm]}
-                                        components={{
-                                            // If a paragraph contains ONLY images (our span wrappers), render as a flex gallery
-                                            p: ({node, children, ...props}) => {
-                                                const childArray = Array.isArray(children) ? children : [children];
-                                                const onlyImages = childArray.every(
-                                                    (child: any) => {
-                                                        if (typeof child === 'string') return child.trim() === '';
-                                                        // Our custom img renderer returns a <span role="button">
-                                                        if (child?.props?.role === 'button') return true;
-                                                        return false;
-                                                    }
-                                                );
-                                                if (onlyImages) {
-                                                    return (
-                                                        <span style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-                                                            {children}
-                                                        </span>
-                                                    );
-                                                }
-                                                return <p {...props}>{children}</p>;
-                                            },
-                                            img: ({node, ...props}) => (
-                                                <span
-                                                    role="button"
-                                                    onClick={() => setZoomedImage((props.src as string) || null)}
-                                                    title="Clique para ampliar"
-                                                    style={{
-                                                        display: 'inline-block',
-                                                        width: '80px',
-                                                        height: '80px',
-                                                        cursor: 'pointer',
-                                                        borderRadius: '8px',
-                                                        overflow: 'hidden',
-                                                        border: '2px solid rgba(255,255,255,0.1)',
-                                                        flexShrink: 0,
-                                                        transition: 'border-color 0.15s',
-                                                    }}
-                                                    onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(99,102,241,0.7)'; }}
-                                                    onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                                                >
-                                                    <img
-                                                        src={props.src}
-                                                        alt={props.alt || 'imagem'}
-                                                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                                                    />
-                                                </span>
-                                            )
-                                        }}
-                                    >
-                                        {description}
-                                    </ReactMarkdown>
-                                </div>
-                            ) : (
+                            {description ? (() => {
+                                // Pre-process: extract all images from markdown
+                                const imageRegex = /!\[.*?\]\((.*?)\)/g;
+                                const imageUrls: string[] = [];
+                                let m;
+                                while ((m = imageRegex.exec(description)) !== null) imageUrls.push(m[1]);
+                                // Clean text: strip image syntax for text display
+                                const cleanText = description.replace(/!\[.*?\]\(.*?\)/g, '').trim();
+
+                                return (
+                                    <>
+                                        {/* Text portion */}
+                                        {cleanText && (
+                                            <div className="text-sm leading-relaxed text-foreground/90 font-medium 
+                                                prose dark:prose-invert max-w-none 
+                                                prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+                                                prose-p:mb-3 last:prose-p:mb-0
+                                                mb-4
+                                            ">
+                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                    {cleanText}
+                                                </ReactMarkdown>
+                                            </div>
+                                        )}
+
+                                        {/* Image Gallery */}
+                                        {imageUrls.length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                {imageUrls.map((src, i) => (
+                                                    <span
+                                                        key={i}
+                                                        role="button"
+                                                        onClick={() => setZoomedImage(src)}
+                                                        title="Clique para ampliar"
+                                                        style={{
+                                                            display: 'inline-block',
+                                                            width: '80px',
+                                                            height: '80px',
+                                                            cursor: 'pointer',
+                                                            borderRadius: '8px',
+                                                            overflow: 'hidden',
+                                                            border: '2px solid rgba(255,255,255,0.1)',
+                                                            flexShrink: 0,
+                                                            transition: 'border-color 0.15s',
+                                                        }}
+                                                        onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(99,102,241,0.7)'; }}
+                                                        onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                                                    >
+                                                        <img
+                                                            src={src}
+                                                            alt={`imagem ${i + 1}`}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                                        />
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })() : (
                                 <p className="text-muted-foreground italic opacity-50">Sem descrição.</p>
                             )}
                         </div>

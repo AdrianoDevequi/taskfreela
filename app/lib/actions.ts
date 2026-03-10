@@ -116,6 +116,7 @@ export async function logout() {
 const UpdateProfileSchema = z.object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email"),
+    whatsapp: z.string().optional(),
     password: PasswordSchema.optional(),
 });
 
@@ -130,7 +131,7 @@ export async function updateProfile(formData: z.infer<typeof UpdateProfileSchema
         return { error: "Invalid fields!" };
     }
 
-    const { name, email, password } = validatedFields.data;
+    const { name, email, whatsapp, password } = validatedFields.data;
     const userId = session.user.id;
 
     // Check if email is taken by ANOTHER user
@@ -150,6 +151,7 @@ export async function updateProfile(formData: z.infer<typeof UpdateProfileSchema
     const updateData: any = {
         name,
         email,
+        whatsapp: whatsapp || null,
     };
 
     if (password && password.trim().length > 0) {

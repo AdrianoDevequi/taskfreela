@@ -1,9 +1,42 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { evolutionService } from "@/services/evolution";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 function getSession() {
     return auth();
+}
+
+async function sendTaskAssignmentNotification(taskId: number, assignedToId: string) {
+    try {
+        const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+        if (!settings || !settings.instanceName) return;
+
+        const task = await prisma.task.findUnique({
+            where: { id: taskId },
+            include: {
+                assignedTo: { select: { name: true, whatsapp: true } },
+                project: { select: { name: true } }
+            }
+        });
+
+        if (!task || !task.assignedTo?.whatsapp) return;
+
+        const date = format(task.dueDate, "dd/MM/yyyy", { locale: ptBR });
+        const projectInfo = task.project ? `\n*Projeto:* ${task.project.name}` : "";
+        
+        const message = `👋 Olá ${task.assignedTo.name}!\n\nUma nova tarefa foi atribuída a você:\n\n*Título:* ${task.title}${projectInfo}\n*Data de Entrega:* ${date}\n\nBoa sorte! 🚀`;
+
+        await evolutionService.sendText(
+            settings.instanceName,
+            task.assignedTo.whatsapp,
+            message
+        );
+    } catch (error) {
+        console.error("Error sending WhatsApp notification:", error);
+    }
 }
 
 // GET: Fetch all tasks for the user's workspace
@@ -72,6 +105,11 @@ export async function POST(req: Request) {
             },
         });
 
+        if (task.assignedToId) {
+            // Trigger WhatsApp notification off-main-thread (as much as possible in Next.js)
+            sendTaskAssignmentNotification(task.id, task.assignedToId);
+        }
+
         return NextResponse.json(task);
     } catch (error) {
         console.error("POST /api/tasks Error:", error);
@@ -122,6 +160,11 @@ export async function PUT(req: Request) {
                 project: { select: { id: true, name: true } },
             },
         });
+
+        // Trigger notification if assignedTo was changed or if it was a new assignment on an existing task
+        if (assignedToId && assignedToId !== existing.assignedToId) {
+            sendTaskAssignmentNotification(task.id, assignedToId);
+        }
 
         return NextResponse.json(task);
     } catch (error) {
