@@ -50,7 +50,10 @@ export async function GET() {
 
         const tasks = await prisma.task.findMany({
             where: { workspaceId },
-            orderBy: { createdAt: "desc" },
+            orderBy: [
+                { dueDate: "asc" },
+                { createdAt: "desc" }
+            ],
             include: {
                 assignedTo: {
                     select: { id: true, name: true, email: true, image: true },

@@ -1,5 +1,4 @@
 import NextAuth from "next-auth"
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "./lib/prisma"
 import authConfig from "./auth.config"
 import Credentials from "next-auth/providers/credentials"
@@ -7,7 +6,6 @@ import { z } from "zod"
 import bcrypt from "bcryptjs"
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
-    adapter: PrismaAdapter(prisma),
     session: { strategy: "jwt" },
     ...authConfig,
     providers: [
@@ -55,20 +53,6 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                 token.workspaceId = session.activeWorkspaceId;
             }
 
-            // Refresh role and workspaceId from DB on every token refresh
-            if (token.sub) {
-                const dbUser = await prisma.user.findUnique({
-                    where: { id: token.sub },
-                    include: { workspaceMembers: true }
-                });
-                if (dbUser) {
-                    token.workspaceId = dbUser.activeWorkspaceId ?? null;
-                    token.whatsapp = (dbUser as any).whatsapp;
-                    token.isSuperAdmin = (dbUser as any).isSuperAdmin;
-                    const activeMember = dbUser.workspaceMembers.find(m => m.workspaceId === dbUser.activeWorkspaceId);
-                    token.role = activeMember ? activeMember.role : "EMPLOYEE";
-                }
-            }
             return token;
         },
         async session({ session, token }) {
