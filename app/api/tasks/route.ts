@@ -105,7 +105,7 @@ export async function POST(req: Request) {
                 isRecurring: typeof isRecurring === 'boolean' ? isRecurring : false,
                 recurrencePattern: recurrencePattern || null,
                 recurrenceDays: recurrenceDays || null,
-            },
+            } as any,
             include: {
                 assignedTo: { select: { id: true, name: true, email: true, image: true } },
                 project: { select: { id: true, name: true } },
@@ -165,7 +165,7 @@ export async function PUT(req: Request) {
                 ...(isRecurring !== undefined && { isRecurring }),
                 ...(recurrencePattern !== undefined && { recurrencePattern }),
                 ...(recurrenceDays !== undefined && { recurrenceDays }),
-            },
+            } as any,
             include: {
                 assignedTo: { select: { id: true, name: true, email: true, image: true } },
                 project: { select: { id: true, name: true } },
@@ -176,6 +176,74 @@ export async function PUT(req: Request) {
         if (assignedToId && assignedToId !== existing.assignedToId && assignedToId !== session.user.id) {
             // Await is required on Vercel
             await sendTaskAssignmentNotification(task.id, assignedToId);
+        }
+
+        // Automatic Recurrence Logic: If marked as DONE and it's a recurring task
+        const t = task as any;
+        if (status === "DONE" && existing.status !== "DONE" && t.isRecurring) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let nextDueDate: Date | null = null;
+            const formatDateLocal = (d: Date) => {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return new Date(`${y}-${m}-${day}T12:00:00`);
+            };
+
+            if (t.recurrencePattern === "DAILY") {
+                const next = new Date(today);
+                next.setDate(next.getDate() + 1);
+                nextDueDate = formatDateLocal(next);
+            } else if (t.recurrencePattern === "WEEKLY") {
+                const next = new Date(today);
+                next.setDate(next.getDate() + 7);
+                nextDueDate = formatDateLocal(next);
+            } else if (t.recurrencePattern === "MONTHLY") {
+                const next = new Date(today);
+                next.setMonth(next.getMonth() + 1);
+                nextDueDate = formatDateLocal(next);
+            } else if (t.recurrencePattern === "CUSTOM_DAYS" && t.recurrenceDays) {
+                const selectedDays = t.recurrenceDays.split(',').map(Number);
+                if (selectedDays.length > 0) {
+                    let daysToAdd = 1;
+                    while (daysToAdd <= 7) {
+                        const checkDate = new Date(today);
+                        checkDate.setDate(checkDate.getDate() + daysToAdd);
+                        if (selectedDays.includes(checkDate.getDay())) {
+                            nextDueDate = formatDateLocal(checkDate);
+                            break;
+                        }
+                        daysToAdd++;
+                    }
+                } else {
+                    const next = new Date(today);
+                    next.setDate(next.getDate() + 1);
+                    nextDueDate = formatDateLocal(next);
+                }
+            }
+
+            if (nextDueDate) {
+                // Create the next occurrence
+                await prisma.task.create({
+                    data: {
+                        title: t.title,
+                        description: t.description,
+                        dueDate: nextDueDate,
+                        status: "TODO",
+                        estimatedTime: t.estimatedTime,
+                        isMandatory: t.isMandatory,
+                        isRecurring: t.isRecurring,
+                        recurrencePattern: t.recurrencePattern,
+                        recurrenceDays: t.recurrenceDays,
+                        workspaceId: t.workspaceId,
+                        projectId: t.projectId,
+                        assignedToId: t.assignedToId,
+                        userId: t.userId, // Maintain the original creator
+                    } as any
+                });
+            }
         }
 
         return NextResponse.json(task);
