@@ -31,7 +31,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                         return {
                             ...user,
                             role: activeMember?.role || "EMPLOYEE",
-                            workspaceId: user.activeWorkspaceId
+                            workspaceId: user.activeWorkspaceId,
+                            isSuperAdmin: (user as any).isSuperAdmin,
                         };
                     }
                 }
@@ -47,6 +48,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                 token.id = user.id;
                 token.role = (user as any).role;
                 token.workspaceId = (user as any).workspaceId;
+                token.isSuperAdmin = (user as any).isSuperAdmin;
             }
 
             if (trigger === "update" && session?.activeWorkspaceId) {
@@ -62,6 +64,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                 if (dbUser) {
                     token.workspaceId = dbUser.activeWorkspaceId ?? null;
                     token.whatsapp = (dbUser as any).whatsapp;
+                    token.isSuperAdmin = (dbUser as any).isSuperAdmin;
                     const activeMember = dbUser.workspaceMembers.find(m => m.workspaceId === dbUser.activeWorkspaceId);
                     token.role = activeMember ? activeMember.role : "EMPLOYEE";
                 }
@@ -74,6 +77,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                 (session.user as any).role = token.role;
                 (session.user as any).workspaceId = token.workspaceId;
                 (session.user as any).whatsapp = token.whatsapp;
+                (session.user as any).isSuperAdmin = token.isSuperAdmin;
             }
             return session;
         },

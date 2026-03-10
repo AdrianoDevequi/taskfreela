@@ -22,6 +22,7 @@ export default async function SettingsPage() {
                 notifyDailySummary: true,
                 notifyNewTasks: true,
                 notifyOverdueTasks: true,
+                isSuperAdmin: true,
             }
         })
     ]);
@@ -37,8 +38,10 @@ export default async function SettingsPage() {
                 <p className="text-muted-foreground">Gerencie as integrações e preferências do sistema.</p>
             </div>
 
-            <EvolutionSettingsForm settings={settings} />
-            <NotificationSettingsForm user={userObj} />
+            {(userObj as any).isSuperAdmin && (
+                <EvolutionSettingsForm settings={settings} />
+            )}
+            <NotificationSettingsForm user={userObj as any} />
         </div>
     );
 }

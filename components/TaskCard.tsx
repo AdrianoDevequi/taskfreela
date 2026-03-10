@@ -82,7 +82,7 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
             })()}
 
             <div className="flex flex-col gap-2 mt-auto w-full">
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 overflow-hidden w-full">
                     {/* Date Tag */}
                     <div
                         className={`
@@ -98,42 +98,42 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
 
                     {/* Project Badge */}
                     {task.project && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 max-w-[150px] truncate" title={task.project.name}>
-                            <Briefcase size={12} className="shrink-0" />
+                        <div className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 max-w-[80px] truncate shrink-0" title={task.project.name}>
+                            <Briefcase size={10} className="shrink-0" />
                             <span className="truncate">{task.project.name}</span>
+                        </div>
+                    )}
+
+                    {/* Time Tag */}
+                    {task.estimatedTime && (
+                        <div className={`
+                            flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border shrink-0
+                            ${task.estimatedTime === 'Rápido' ? 'bg-green-500/10 text-green-500 border-green-500/20' : ''}
+                            ${task.estimatedTime === 'Mediano' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' : ''}
+                            ${task.estimatedTime === 'Demorado' ? 'bg-red-500/10 text-red-500 border-red-500/20' : ''}
+                            ${!['Rápido', 'Mediano', 'Demorado'].includes(task.estimatedTime) ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : ''}
+                        `} title={task.estimatedTime}>
+                            <Clock size={10} />
+                            <span className="hidden sm:inline-block truncate max-w-[60px]">{task.estimatedTime}</span>
                         </div>
                     )}
 
                     {/* Assignee Avatar */}
                     {task.assignedTo && (
-                        <div className="ml-auto flex items-center gap-2 bg-muted/30 pl-2 pr-3 py-1 rounded-full border border-border/50" title={`Responsável: ${task.assignedTo.name}`}>
+                        <div className="ml-auto flex items-center gap-1.5 bg-muted/30 pl-1.5 pr-2 py-1 rounded-full border border-border/50 shrink-0" title={`Responsável: ${task.assignedTo.name}`}>
                             {task.assignedTo.image ? (
-                                <img src={task.assignedTo.image} alt={task.assignedTo.name} className="w-5 h-5 rounded-full object-cover" />
+                                <img src={task.assignedTo.image} alt={task.assignedTo.name} className="w-4 h-4 rounded-full object-cover" />
                             ) : (
-                                <div className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] border border-blue-500/30">
+                                <div className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[9px] border border-blue-500/30">
                                     {task.assignedTo.name?.[0]?.toUpperCase() || "U"}
                                 </div>
                             )}
-                            <span className="text-xs font-medium text-foreground max-w-[80px] truncate">{task.assignedTo.name.split(' ')[0]}</span>
+                            <span className="text-[10px] font-medium text-foreground max-w-[50px] truncate leading-none">{task.assignedTo.name.split(' ')[0]}</span>
                         </div>
                     )}
                 </div>
 
-                <div className="flex items-center justify-between w-full">
-                    {/* Time Tag */}
-                    {task.estimatedTime ? (
-                        <div className={`
-                            flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
-                            ${task.estimatedTime === 'Rápido' ? 'bg-green-500/10 text-green-500 border-green-500/20' : ''}
-                            ${task.estimatedTime === 'Mediano' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' : ''}
-                            ${task.estimatedTime === 'Demorado' ? 'bg-red-500/10 text-red-500 border-red-500/20' : ''}
-                            ${!['Rápido', 'Mediano', 'Demorado'].includes(task.estimatedTime) ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : ''}
-                        `}>
-                            <Clock size={12} />
-                            {task.estimatedTime}
-                        </div>
-                    ) : <div />}
-
+                <div className="flex items-center justify-end w-full mt-2">
                     {/* Quick Actions - Always visible on mobile (touch), hover on desktop */}
                     <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-auto">
                         {/* Edit */}

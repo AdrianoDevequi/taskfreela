@@ -9,6 +9,7 @@ interface Member {
     email: string | null;
     image: string | null;
     role: string;
+    isSuperAdmin?: boolean;
 }
 
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher';
@@ -172,7 +173,14 @@ export default function EquipePage() {
                                         </div>
                                     )}
                                     <div className="min-w-0">
-                                        <p className="text-sm font-medium text-white truncate">{member.name || 'Sem nome'}</p>
+                                        <p className="text-sm font-medium text-white truncate flex items-center gap-2">
+                                            {member.name || 'Sem nome'}
+                                            {member.isSuperAdmin && (
+                                                <span className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 text-purple-400 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider border border-purple-500/30">
+                                                    ADM
+                                                </span>
+                                            )}
+                                        </p>
                                         <p className="text-xs text-zinc-400 flex items-center gap-1 truncate">
                                             <Mail size={11} className="shrink-0" />
                                             <span className="truncate">{member.email}</span>

@@ -46,7 +46,14 @@ export default function Sidebar({ user, className, onLinkClick }: { user: any, c
                             {user?.name?.[0]?.toUpperCase() || "U"}
                         </div>
                         <div className="flex flex-col min-w-0 text-left">
-                            <span className="text-sm font-medium text-foreground truncate">{user?.name || "Usuário"}</span>
+                            <span className="text-sm font-medium text-foreground truncate flex items-center gap-2">
+                                {user?.name || "Usuário"}
+                                {user?.isSuperAdmin && (
+                                    <span className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 text-purple-400 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider border border-purple-500/30">
+                                        ADM
+                                    </span>
+                                )}
+                            </span>
                             <span className="text-xs text-muted-foreground truncate">{user?.email || ""}</span>
                         </div>
                     </Link>

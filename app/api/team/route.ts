@@ -15,11 +15,11 @@ export async function GET() {
 
         const workspaceMembers = await prisma.workspaceMember.findMany({
             where: { workspaceId },
-            include: { user: { select: { id: true, name: true, email: true, image: true, createdAt: true } } },
+            include: { user: { select: { id: true, name: true, email: true, image: true, createdAt: true, isSuperAdmin: true } } },
             orderBy: { createdAt: "asc" },
         });
 
-        const members = workspaceMembers.map(wm => ({
+        const members = (workspaceMembers as any).map((wm: any) => ({
             ...wm.user,
             role: wm.role
         }));

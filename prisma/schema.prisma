@@ -145,6 +145,7 @@ model user {
   notifyNewTasks     Boolean @default(true)
   notifyOverdueTasks Boolean @default(true)
   showTeamTasks      Boolean @default(false)
+  isSuperAdmin       Boolean @default(false)
   createdTasks      task[]            @relation("TaskCreator")
   assignedTasks     task[]            @relation("TaskAssignee")
   activeWorkspace   workspace?        @relation("ActiveWorkspace", fields: [activeWorkspaceId], references: [id], onDelete: SetNull)
