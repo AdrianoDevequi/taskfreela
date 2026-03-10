@@ -44,6 +44,11 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         fetch("/api/projects").then(res => res.json()).then(data => {
             if (Array.isArray(data)) setAvailableProjects(data);
         }).catch(err => console.error(err));
+
+        // Fetch team members to populate the assignee dropdown
+        fetch("/api/team").then(res => res.json()).then(data => {
+            if (Array.isArray(data)) setTeamMembers(data);
+        }).catch(err => console.error(err));
     }, []);
 
     const titleInputRef = useRef<HTMLInputElement>(null);
