@@ -427,7 +427,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                             {description ? (
                                 <div className="text-sm leading-relaxed text-foreground/90 font-medium 
                                     prose dark:prose-invert max-w-none 
-                                    prose-img:rounded-xl prose-img:border prose-img:border-border prose-img:max-h-[200px] prose-img:object-cover prose-img:mx-auto prose-img:cursor-pointer prose-img:transition-transform hover:prose-img:scale-[1.02]
                                     prose-a:text-primary prose-a:no-underline hover:prose-a:underline
                                     prose-p:mb-4 last:prose-p:mb-0
                                 ">
@@ -439,6 +438,9 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                                                     {...props} 
                                                     onClick={() => setZoomedImage((props.src as string) || null)}
                                                     alt={props.alt || "Task Image"}
+                                                    style={{ maxHeight: '150px', width: 'auto', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', display: 'inline-block', marginRight: '8px', verticalAlign: 'middle', transition: 'transform 0.2s' }}
+                                                    onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.03)')}
+                                                    onMouseOut={e => (e.currentTarget.style.transform = 'scale(1)')}
                                                 />
                                             )
                                         }}
