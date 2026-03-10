@@ -6,7 +6,7 @@ import CreateTaskModal from "@/components/CreateTaskModal";
 import MobileFAB from "@/components/MobileFAB";
 import { UpcomingEventsWidget } from "@/components/UpcomingEventsWidget";
 import { Task } from "@/types";
-import { Plus, Sparkles, Zap, ZapOff, Users } from "lucide-react";
+import { Plus, Sparkles, Zap, ZapOff, Users, Repeat } from "lucide-react";
 import { useSimpleMode } from "@/app/context/SimpleModeContext";
 import { useTeamTasks } from "@/app/context/TeamTasksContext";
 import { useSession } from "next-auth/react";
@@ -138,14 +138,14 @@ export default function Home() {
         <div className="hidden md:flex items-center gap-3 w-full md:w-auto">
           <button
             onClick={() => { setEditingTask(null); setStartWithMagic(true); setIsModalOpen(true); }}
-            className="flex-1 md:flex-none bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2.5 rounded-xl font-bold uppercase text-[10px] md:text-xs tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-purple-500/25 border border-white/10"
+            className="flex-1 md:flex-none bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-500 hover:from-blue-700 hover:via-indigo-600 hover:to-purple-600 text-white px-4 py-2.5 rounded-xl font-bold uppercase text-[10px] md:text-xs tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-purple-500/25 border border-white/10"
           >
             <Sparkles size={16} className="text-yellow-300" />
             <span>Tarefa Mágica</span>
           </button>
           <button
             onClick={() => { setEditingTask(null); setStartWithMagic(false); setIsModalOpen(true); }}
-            className="flex-1 md:flex-none bg-primary hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-primary/25 active:scale-95 text-sm md:text-base"
+            className="flex-1 md:flex-none bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-blue-500/25 active:scale-95 text-sm md:text-base"
           >
             <Plus size={20} />
             <span className="whitespace-nowrap">Nova Tarefa</span>
@@ -173,13 +173,13 @@ export default function Home() {
             label: "Tarefa Mágica",
             icon: <Sparkles size={16} className="text-yellow-300" />,
             onClick: () => { setEditingTask(null); setStartWithMagic(true); setIsModalOpen(true); },
-            color: "bg-gradient-to-r from-blue-600 to-purple-600"
+            color: "bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-500"
           },
           {
             label: "Nova Tarefa",
             icon: <Plus size={18} />,
             onClick: () => { setEditingTask(null); setStartWithMagic(false); setIsModalOpen(true); },
-            color: "bg-primary"
+            color: "bg-blue-500"
           }
         ]}
       />

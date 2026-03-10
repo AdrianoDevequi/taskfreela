@@ -95,6 +95,10 @@ model task {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   estimatedTime String?
+  isMandatory   Boolean    @default(false)
+  isRecurring   Boolean    @default(false)
+  recurrencePattern String?
+  recurrenceDays String?
   userId        String?
   workspaceId   String?
   assignedToId  String?
@@ -144,6 +148,7 @@ model user {
   notifyDailySummary Boolean @default(true)
   notifyNewTasks     Boolean @default(true)
   notifyOverdueTasks Boolean @default(true)
+  notifyMandatoryTasks Boolean @default(true)
   showTeamTasks      Boolean @default(false)
   isSuperAdmin       Boolean @default(false)
   createdTasks      task[]            @relation("TaskCreator")

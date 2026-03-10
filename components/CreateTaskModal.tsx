@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSimpleMode } from "@/app/context/SimpleModeContext";
-import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users, MessageSquare, Send, Paperclip } from "lucide-react";
+import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users, MessageSquare, Send, Paperclip, Repeat, Info } from "lucide-react";
 import { Task } from "@/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -30,6 +30,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
     const [description, setDescription] = useState("");
     const [dueDate, setDueDate] = useState("");
     const [estimatedTime, setEstimatedTime] = useState("");
+    const [isMandatory, setIsMandatory] = useState(false);
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [recurrencePattern, setRecurrencePattern] = useState("DAILY");
+    const [recurrenceDays, setRecurrenceDays] = useState("");
     const [projectId, setProjectId] = useState("");
     const [availableProjects, setAvailableProjects] = useState<{id: string, name: string}[]>([]);
     
@@ -76,6 +80,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                 setDescription(taskToEdit.description || "");
                 setDueDate(new Date(taskToEdit.dueDate).toISOString().split("T")[0]);
                 setEstimatedTime(taskToEdit.estimatedTime || "");
+                setIsMandatory(taskToEdit.isMandatory || false);
+                setIsRecurring(taskToEdit.isRecurring || false);
+                setRecurrencePattern(taskToEdit.recurrencePattern || "DAILY");
+                setRecurrenceDays(taskToEdit.recurrenceDays || "");
                 setProjectId(taskToEdit.projectId || "");
                 if (taskToEdit.id) {
                     fetchComments(taskToEdit.id.toString());
@@ -83,9 +91,12 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
             } else {
                 // New Task
                 setIsEditing(true);
-                setTitle("");
                 setDescription("");
                 setEstimatedTime("");
+                setIsMandatory(false);
+                setIsRecurring(false);
+                setRecurrencePattern("DAILY");
+                setRecurrenceDays("");
                 setProjectId("");
                 setAssignedToId("");
                 const tomorrow = new Date();
@@ -284,6 +295,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
             dueDate: new Date(dueDate).toISOString(),
             status: taskToEdit ? undefined : "TODO", // Don't reset status on edit
             estimatedTime,
+            isMandatory: isRecurring ? true : isMandatory,
+            isRecurring,
+            recurrencePattern: isRecurring ? recurrencePattern : null,
+            recurrenceDays: (isRecurring && recurrencePattern === 'CUSTOM_DAYS') ? recurrenceDays : null,
             projectId: finalProjectId,
             assignedToId: finalAssigneeId,
         });
@@ -299,6 +314,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         setTitle("");
         setDescription("");
         setEstimatedTime("");
+        setIsMandatory(false);
+        setIsRecurring(false);
+        setRecurrencePattern("DAILY");
+        setRecurrenceDays("");
         setProjectId("");
         setAssignedToId("");
         setIsEditing(false);
@@ -361,9 +380,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                             >
                                 <Pencil size={14} /> Editar
                             </button>
-                        )}
-                        {isEditing && !taskToEdit && !isMagicMode && (
-                            <MagicUpload onFileSelect={processFile} isAnalyzing={isAnalyzing} />
                         )}
                         <button
                             onClick={handleClose}
@@ -562,14 +578,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                 {/* Edit Mode Form */}
                 {isEditing && !isMagicMode && (
                     <form onSubmit={handleSubmit} className="p-4 space-y-4">
-                        {/* Paste Hint */}
-                        {!taskToEdit && (
-                            <div className="flex items-center justify-center gap-2 text-[10px] uppercase font-bold text-muted-foreground/50 border border-dashed border-border rounded-lg p-2 bg-muted/20">
-                                <Keyboard size={12} />
-                                <span>Pressione <span className="text-foreground">Ctrl + V</span> para colar um print</span>
-                            </div>
-                        )}
-
                         {/* Title */}
                         <div className="space-y-1">
                             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
@@ -616,6 +624,134 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                                 </select>
                             </div>
                         </div>
+
+                        {/* Options Checkboxes */}
+                        <div className="flex flex-wrap items-center gap-6 bg-muted/20 px-4 py-3 rounded-xl border border-border/50">
+                            {/* Mandatory Checkbox */}
+                            <div className="flex items-center gap-2">
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <div className="relative flex items-center justify-center w-5 h-5 rounded overflow-hidden border border-input bg-card group-hover:border-primary transition-colors">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isRecurring ? true : isMandatory} 
+                                            disabled={isRecurring}
+                                            onChange={(e) => setIsMandatory(e.target.checked)}
+                                            className="peer absolute inset-0 opacity-0 cursor-pointer"
+                                        />
+                                        <div className="pointer-events-none w-full h-full bg-primary flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
+                                            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <span className={`text-sm font-semibold transition-colors ${(isRecurring ? true : isMandatory) ? 'text-primary' : 'text-foreground'}`}>
+                                        Prazo Obrigatório
+                                    </span>
+                                </label>
+                                <div className="group/tooltip relative flex items-center">
+                                    <Info size={14} className="text-muted-foreground hover:text-foreground transition-colors cursor-help" />
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-popover text-popover-foreground text-xs rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all border border-border z-10 text-center pointer-events-none">
+                                        O responsável receberá um alerta via WhatsApp se não entregar a tarefa na data estipulada.
+                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-popover border-b border-r border-border rotate-45"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Recurring Checkbox */}
+                            <div className="flex items-center gap-2">
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <div className="relative flex items-center justify-center w-5 h-5 rounded overflow-hidden border border-input bg-card group-hover:border-primary transition-colors">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isRecurring} 
+                                            onChange={(e) => setIsRecurring(e.target.checked)}
+                                            className="peer absolute inset-0 opacity-0 cursor-pointer"
+                                        />
+                                        <div className="pointer-events-none w-full h-full bg-primary flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
+                                            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <span className={`text-sm font-semibold transition-colors ${isRecurring ? 'text-primary' : 'text-foreground'}`}>
+                                        Tarefa Recorrente
+                                    </span>
+                                </label>
+                                <div className="group/tooltip relative flex items-center">
+                                    <Repeat size={14} className="text-muted-foreground hover:text-foreground transition-colors cursor-help" />
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-popover text-popover-foreground text-xs rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all border border-border z-10 text-center pointer-events-none">
+                                        Esta tarefa recriará automaticamente a próxima entrega quando for marcada como Concluída. Ativa "Prazo Obrigatório" automaticamente.
+                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-popover border-b border-r border-border rotate-45"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Recurrence Pattern Configuration */}
+                        {isRecurring && (
+                            <div className="space-y-3 bg-primary/5 p-4 rounded-xl border border-primary/20 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <Repeat size={14} /> Frequência
+                                    </label>
+                                    <select
+                                        value={recurrencePattern}
+                                        onChange={(e) => setRecurrencePattern(e.target.value)}
+                                        className="w-full bg-card border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
+                                    >
+                                        <option value="DAILY">Todos os dias</option>
+                                        <option value="WEEKLY">Semanalmente (no mesmo dia da semana)</option>
+                                        <option value="MONTHLY">Mensalmente (no mesmo dia do mês)</option>
+                                        <option value="CUSTOM_DAYS">Dias específicos da semana</option>
+                                    </select>
+                                </div>
+
+                                {recurrencePattern === "CUSTOM_DAYS" && (
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                            Selecione os dias
+                                        </label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {[
+                                                { val: "1", label: "Seg" },
+                                                { val: "2", label: "Ter" },
+                                                { val: "3", label: "Qua" },
+                                                { val: "4", label: "Qui" },
+                                                { val: "5", label: "Sex" },
+                                                { val: "6", label: "Sáb" },
+                                                { val: "0", label: "Dom" },
+                                            ].map(day => {
+                                                const selectedDays = recurrenceDays ? recurrenceDays.split(",") : [];
+                                                const isSelected = selectedDays.includes(day.val);
+                                                
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={day.val}
+                                                        onClick={() => {
+                                                            let newDays = [...selectedDays];
+                                                            if (isSelected) {
+                                                                newDays = newDays.filter(d => d !== day.val);
+                                                            } else {
+                                                                newDays.push(day.val);
+                                                            }
+                                                            setRecurrenceDays(newDays.join(","));
+                                                        }}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                            isSelected 
+                                                                ? "bg-primary text-white shadow-md shadow-primary/20" 
+                                                                : "bg-muted text-muted-foreground hover:bg-muted-foreground/20 hover:text-foreground"
+                                                        }`}
+                                                    >
+                                                        {day.label}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Project & Assignee Row - Hidden in Simple Mode */}
                         {!isSimpleMode && (

@@ -7,6 +7,10 @@ export interface Task {
     dueDate: Date | string; // String for JSON serialization, Date for logic
     status: TaskStatus;
     estimatedTime?: string | null;
+    isMandatory?: boolean;
+    isRecurring?: boolean;
+    recurrencePattern?: string | null;
+    recurrenceDays?: string | null;
     createdAt?: Date | string;
     projectId?: string | null;
     project?: { id: string, name: string } | null;
