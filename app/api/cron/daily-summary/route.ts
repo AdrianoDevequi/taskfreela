@@ -21,7 +21,7 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Settings not configured" }, { status: 500 });
         }
 
-        const users = await prisma.user.findMany({
+        const users = await (prisma.user as any).findMany({
             where: {
                 whatsapp: { not: null },
                 assignedTasks: {
@@ -53,12 +53,12 @@ export async function GET(req: Request) {
 
             let message = `📝 *Resumo Diário de Tarefas* - ${format(new Date(), "dd/MM/yyyy")}\n\nOlá ${user.name || "Colaborador"}, aqui está o seu resumo de hoje:\n\n`;
 
-            const overdue = user.assignedTasks.filter(t => isPast(t.dueDate) && !isToday(t.dueDate));
-            const upcoming = user.assignedTasks.filter(t => !isPast(t.dueDate) || isToday(t.dueDate));
+            const overdue = user.assignedTasks.filter((t: any) => isPast(t.dueDate) && !isToday(t.dueDate));
+            const upcoming = user.assignedTasks.filter((t: any) => !isPast(t.dueDate) || isToday(t.dueDate));
 
             if (overdue.length > 0) {
                 message += `🚨 *ATRASADAS:*\n`;
-                overdue.forEach(task => {
+                overdue.forEach((task: any) => {
                     const date = format(task.dueDate, "dd/MM", { locale: ptBR });
                     const project = task.project ? `[${task.project.name}] ` : "";
                     message += `• ${project}${task.title} - *${date}*\n`;
@@ -68,7 +68,7 @@ export async function GET(req: Request) {
 
             if (upcoming.length > 0) {
                 message += `📅 *PRÓXIMAS:*\n`;
-                upcoming.forEach(task => {
+                upcoming.forEach((task: any) => {
                     const date = format(task.dueDate, "dd/MM", { locale: ptBR });
                     const project = task.project ? `[${task.project.name}] ` : "";
                     message += `• ${project}${task.title} - ${date}\n`;
