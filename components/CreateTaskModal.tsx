@@ -53,8 +53,11 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) {
-                    // Filter out the current user to avoid duplicate (since "Assign to me" is always present as an option)
-                    const filtered = data.filter((member: any) => member.id !== (session?.user as any)?.id);
+                    // Filter out the current user to avoid duplicate (since "Atribuir a mim" is always present as an option)
+                    // We check both ID and Email to be safe depending on how next-auth session is populated
+                    const currentUserEmail = session?.user?.email;
+                    const currentUserId = (session?.user as any)?.id;
+                    const filtered = data.filter((member: any) => member.id !== currentUserId && member.email !== currentUserEmail);
                     setTeamMembers(filtered);
                 }
             })
