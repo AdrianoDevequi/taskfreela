@@ -116,8 +116,8 @@ export async function logout() {
 const UpdateProfileSchema = z.object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email"),
-    whatsapp: z.string().optional(),
-    password: PasswordSchema.optional(),
+    whatsapp: z.string().optional().nullable(),
+    password: z.string().optional().nullable(),
 });
 
 export async function updateProfile(formData: z.infer<typeof UpdateProfileSchema>) {
