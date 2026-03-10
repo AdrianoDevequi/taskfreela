@@ -29,6 +29,7 @@ export class EvolutionService {
             const url = `${baseUrl}/message/sendText/${instanceName}`;
 
             console.log(`[Evolution] Sending message to ${number}...`);
+            console.log(`[Evolution] URL: ${url}`);
 
             const response = await fetch(url, {
                 method: "POST",
@@ -52,11 +53,12 @@ export class EvolutionService {
 
             if (!response.ok) {
                 const error = await response.text();
-                console.error(`[Evolution] Error sending message: ${response.status} - ${error}`);
+                console.error(`[Evolution] Error sending message to ${number}: ${response.status} - ${error}`);
                 return false;
             }
 
             const data = await response.json();
+            console.log(`[Evolution] Success sending message to ${number}:`, JSON.stringify(data));
             return data;
         } catch (error) {
             console.error(`[Evolution] Exception sending message to ${number}:`, error);

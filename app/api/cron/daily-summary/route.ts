@@ -37,12 +37,19 @@ export async function GET(req: Request) {
                     orderBy: { dueDate: "asc" }
                 }
             }
-        });
+        }) as any[];
 
-        console.log(`[Cron] Found ${users.length} users with pending tasks for summary.`);
+        const results = {
+            totalUsers: users.length,
+            successCount: 0,
+            failureCount: 0,
+            errors: [] as string[]
+        };
 
         for (const user of users) {
             if (!user.whatsapp) continue;
+
+            console.log(`[Cron] Processing user: ${user.name} (${user.whatsapp})`);
 
             let message = `📝 *Resumo Diário de Tarefas* - ${format(new Date(), "dd/MM/yyyy")}\n\nOlá ${user.name || "Colaborador"}, aqui está o seu resumo de hoje:\n\n`;
 
@@ -72,14 +79,26 @@ export async function GET(req: Request) {
 
             message += `\n\n_Acesse o sistema para mais detalhes._ 🚀`;
 
-            await evolutionService.sendText(
+            const success = await evolutionService.sendText(
                 settings.instanceName,
                 user.whatsapp,
                 message
             );
+
+            if (success) {
+                results.successCount++;
+            } else {
+                results.failureCount++;
+                results.errors.push(`Failed to send to ${user.whatsapp}`);
+            }
         }
 
-        return NextResponse.json({ success: true, usersNotified: users.length });
+        console.log(`[Cron] Daily Summary finished. Results:`, results);
+
+        return NextResponse.json({ 
+            success: results.failureCount === 0, 
+            ...results 
+        });
     } catch (error) {
         console.error("[Cron] Daily Summary Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
