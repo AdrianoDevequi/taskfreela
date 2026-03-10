@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Check, ChevronsUpDown, Loader2, Plus, Building } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 interface Workspace {
     id: string;
@@ -16,34 +17,19 @@ export function WorkspaceSwitcher() {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isSwitching, setIsSwitching] = useState(false);
+    const { data: session, update } = useSession();
     const router = useRouter();
 
     useEffect(() => {
         fetchWorkspaces();
-        
-        // Try to get the active workspace from next auth session or local storage
-        // A better way is to rely on an endpoint that returns the full user profile including activeWorkspaceId
-        fetch("/api/reports") // Just to check session minimally, or better create a /api/me endpoint
-            .then(() => fetch("/api/workspaces"))
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) {
-                    setWorkspaces(data);
-                }
-            })
-            .finally(() => setIsLoading(false));
-            
-        // For simplicity we will determine active workspace by what the user sets
-        // Realistically, the active workspace ID should come from the session token.
-        // As a fallback, we fetch /api/auth/session or assume first one if not set
-        fetch("/api/auth/session")
-            .then(res => res.json())
-            .then(session => {
-                if (session?.user?.workspaceId) {
-                    setActiveWorkspaceId(session.user.workspaceId);
-                }
-            });
     }, []);
+
+    // Keep active workspace in sync with session
+    useEffect(() => {
+        if (session?.user && (session.user as any).workspaceId) {
+            setActiveWorkspaceId((session.user as any).workspaceId);
+        }
+    }, [session]);
 
     const fetchWorkspaces = async () => {
         try {
@@ -54,6 +40,8 @@ export function WorkspaceSwitcher() {
             }
         } catch (error) {
             console.error(error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -72,10 +60,15 @@ export function WorkspaceSwitcher() {
             });
 
             if (res.ok) {
+                // Force token refresh so the UI reads the new Workspace Role
+                await update({ activeWorkspaceId: workspaceId });
                 setActiveWorkspaceId(workspaceId);
                 setIsOpen(false);
-                // Hard refresh to reload all data with new workspace token
-                window.location.href = "/dashboard";
+                router.refresh(); // Soft refresh to update server components safely
+                // Give it a tiny delay to let the session cookie settle, then hard reload
+                setTimeout(() => {
+                    window.location.href = "/dashboard";
+                }, 100);
             } else {
                 alert("Falha ao trocar de equipe");
             }

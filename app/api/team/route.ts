@@ -35,8 +35,15 @@ export async function POST(req: Request) {
         const session = await auth();
         if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-        const role = (session.user as any).role as string;
-        const workspaceId = (session.user as any).workspaceId as string | null;
+        // Always check DB to prevent stale session token issues
+        const currentUser = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            include: { workspaceMembers: true }
+        });
+        
+        const workspaceId = currentUser?.activeWorkspaceId;
+        const activeMember = currentUser?.workspaceMembers.find(m => m.workspaceId === workspaceId);
+        const role = activeMember?.role;
 
         if (role !== "MANAGER" && role !== "ADMIN") {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -66,6 +73,13 @@ export async function POST(req: Request) {
             },
         });
 
+        // Switch the invited user automatically to this new team
+        // This solves the issue of users being stuck in their auto-generated workspace upon registration
+        await prisma.user.update({
+            where: { id: targetUser.id },
+            data: { activeWorkspaceId: workspaceId! }
+        });
+
         return NextResponse.json({
             id: targetUser.id,
             name: targetUser.name,
@@ -85,8 +99,15 @@ export async function DELETE(req: Request) {
         const session = await auth();
         if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-        const role = (session.user as any).role as string;
-        const workspaceId = (session.user as any).workspaceId as string | null;
+        // Always check DB to prevent stale session token issues
+        const currentUser = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            include: { workspaceMembers: true }
+        });
+        
+        const workspaceId = currentUser?.activeWorkspaceId;
+        const activeMember = currentUser?.workspaceMembers.find(m => m.workspaceId === workspaceId);
+        const role = activeMember?.role;
 
         if (role !== "MANAGER" && role !== "ADMIN") {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });

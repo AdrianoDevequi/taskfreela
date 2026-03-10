@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google"; // Switch to Montserrat
+import { Providers } from "./providers";
 import "./globals.css";
-
 
 const montserrat = Montserrat({ subsets: ["latin"] });
 
@@ -18,7 +18,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${montserrat.className} min-h-screen bg-background text-foreground antialiased`} suppressHydrationWarning={true}>
-        {children}
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );
