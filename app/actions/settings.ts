@@ -3,12 +3,12 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { evolutionService } from "@/services/evolution";
+import { auth } from "@/auth";
 
 export async function saveSettings(formData: FormData) {
     const apiUrl = formData.get("apiUrl") as string;
     const apiKey = formData.get("apiKey") as string;
     const instanceName = formData.get("instanceName") as string;
-    const notificationPhone = formData.get("notificationPhone") as string;
 
     try {
         await prisma.settings.upsert({
@@ -17,14 +17,12 @@ export async function saveSettings(formData: FormData) {
                 apiUrl,
                 apiKey,
                 instanceName,
-                notificationPhone
             },
             create: {
                 id: 1,
                 apiUrl,
                 apiKey,
                 instanceName,
-                notificationPhone
             }
         });
 
@@ -50,24 +48,37 @@ export async function getSettings() {
 
 export async function sendTestMessage() {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return { success: false, error: "Não autorizado." };
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: session.user.id }
+        }) as any;
+
+        if (!user?.whatsapp) {
+            return { success: false, error: "Você precisa cadastrar seu WhatsApp no Perfil primeiro." };
+        }
+
         const settings = await prisma.settings.findUnique({ where: { id: 1 } });
 
-        if (!settings || !settings.notificationPhone || !settings.instanceName) {
-            return { success: false, error: "Configurações incompletas." };
+        if (!settings || !settings.instanceName) {
+            return { success: false, error: "Configurações da API incompletas." };
         }
 
         const message = "🔔 *Teste de Conexão - TaskFlow*\n\nSe você recebeu esta mensagem, a integração com o Evolution API está funcionando corretamente! 🚀";
 
         const result = await evolutionService.sendText(
             settings.instanceName,
-            settings.notificationPhone,
+            user.whatsapp,
             message
         );
 
         if (result) {
             return { success: true };
         } else {
-            return { success: false, error: "Falha ao enviar mensagem (Verifique logs)." };
+            return { success: false, error: "Falha ao enviar mensagem (Verifique se a instância está conectada)." };
         }
     } catch (error) {
         console.error("Test message failed:", error);

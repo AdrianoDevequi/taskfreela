@@ -80,19 +80,6 @@ export function EvolutionSettingsForm({ settings }: { settings: any }) {
                                 <p className="text-[10px] text-muted-foreground">Nome exato da instância criada na Evolution</p>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium leading-none">
-                                    WhatsApp para Notificação
-                                </label>
-                                <input
-                                    name="notificationPhone"
-                                    placeholder="5511999999999"
-                                    defaultValue={settings?.notificationPhone}
-                                    className="w-full bg-muted/50 border border-input rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-mono"
-                                    required
-                                />
-                                <p className="text-[10px] text-muted-foreground">Número com DDI e DDD (apenas números)</p>
-                            </div>
                         </div>
                     </div>
 

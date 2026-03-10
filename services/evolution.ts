@@ -3,8 +3,15 @@ import { getSettings } from "@/app/actions/settings";
 export class EvolutionService {
     private async getConfig() {
         const settings = await getSettings();
+        let baseUrl = settings?.apiUrl?.replace(/\/+$/, "") || "";
+        
+        // Add protocol if missing
+        if (baseUrl && !baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+            baseUrl = `https://${baseUrl}`;
+        }
+
         return {
-            baseUrl: settings?.apiUrl?.replace(/\/+$/, "") || "",
+            baseUrl,
             apiKey: settings?.apiKey || "",
         };
     }
