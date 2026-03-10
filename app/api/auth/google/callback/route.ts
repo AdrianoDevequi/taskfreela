@@ -1,10 +1,8 @@
 
 import { google } from "googleapis";
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-
-const prisma = new PrismaClient();
 
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url);

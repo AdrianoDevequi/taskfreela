@@ -1,9 +1,8 @@
 
 import { google } from "googleapis";
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 
 export async function POST(request: Request) {
     try {
