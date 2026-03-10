@@ -304,7 +304,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div
                 className={`
-                    bg-card w-full rounded-2xl shadow-2xl border border-border flex flex-col animate-in fade-in zoom-in duration-200 relative overflow-hidden
+                    bg-card w-full rounded-2xl shadow-2xl border border-border flex flex-col animate-in fade-in zoom-in duration-200 relative overflow-y-auto max-h-[90vh]
                     ${isEditing && !isMagicMode ? 'max-w-md' : 'max-w-5xl'} transition-all
                 `}
             >
@@ -433,6 +433,26 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                                     <ReactMarkdown 
                                         remarkPlugins={[remarkGfm]}
                                         components={{
+                                            // If a paragraph contains ONLY images (our span wrappers), render as a flex gallery
+                                            p: ({node, children, ...props}) => {
+                                                const childArray = Array.isArray(children) ? children : [children];
+                                                const onlyImages = childArray.every(
+                                                    (child: any) => {
+                                                        if (typeof child === 'string') return child.trim() === '';
+                                                        // Our custom img renderer returns a <span role="button">
+                                                        if (child?.props?.role === 'button') return true;
+                                                        return false;
+                                                    }
+                                                );
+                                                if (onlyImages) {
+                                                    return (
+                                                        <span style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                                                            {children}
+                                                        </span>
+                                                    );
+                                                }
+                                                return <p {...props}>{children}</p>;
+                                            },
                                             img: ({node, ...props}) => (
                                                 <span
                                                     role="button"
@@ -440,11 +460,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                                                     title="Clique para ampliar"
                                                     style={{
                                                         display: 'inline-block',
-                                                        width: '72px',
-                                                        height: '72px',
-                                                        marginRight: '8px',
-                                                        marginBottom: '8px',
-                                                        verticalAlign: 'middle',
+                                                        width: '80px',
+                                                        height: '80px',
                                                         cursor: 'pointer',
                                                         borderRadius: '8px',
                                                         overflow: 'hidden',
