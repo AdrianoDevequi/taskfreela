@@ -24,6 +24,7 @@ export async function GET(req: Request) {
         const users = await (prisma.user as any).findMany({
             where: {
                 whatsapp: { not: null },
+                notifyDailySummary: true,
                 assignedTasks: {
                     some: {
                         status: { not: "DONE" }

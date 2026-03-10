@@ -17,12 +17,12 @@ async function sendTaskAssignmentNotification(taskId: number, assignedToId: stri
         const task = await (prisma.task as any).findUnique({
             where: { id: taskId },
             include: {
-                assignedTo: { select: { name: true, whatsapp: true } },
+                assignedTo: { select: { name: true, whatsapp: true, notifyNewTasks: true } },
                 project: { select: { name: true } }
             }
         });
 
-        if (!task || !task.assignedTo?.whatsapp) return;
+        if (!task || !task.assignedTo?.whatsapp || !task.assignedTo.notifyNewTasks) return;
 
         const date = format(task.dueDate, "dd/MM/yyyy", { locale: ptBR });
         const projectInfo = task.project ? `\n*Projeto:* ${task.project.name}` : "";

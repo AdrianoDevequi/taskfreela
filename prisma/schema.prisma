@@ -141,6 +141,9 @@ model user {
   reminder          reminder[]
   session           session[]
   whatsapp          String?
+  notifyDailySummary Boolean @default(true)
+  notifyNewTasks     Boolean @default(true)
+  notifyOverdueTasks Boolean @default(true)
   createdTasks      task[]            @relation("TaskCreator")
   assignedTasks     task[]            @relation("TaskAssignee")
   activeWorkspace   workspace?        @relation("ActiveWorkspace", fields: [activeWorkspaceId], references: [id], onDelete: SetNull)

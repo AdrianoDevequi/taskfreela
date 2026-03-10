@@ -119,6 +119,9 @@ const UpdateProfileSchema = z.object({
     email: z.string().email("Invalid email"),
     whatsapp: z.string().optional().nullable(),
     password: z.string().optional().nullable(),
+    notifyDailySummary: z.boolean().optional(),
+    notifyNewTasks: z.boolean().optional(),
+    notifyOverdueTasks: z.boolean().optional(),
 });
 
 export async function updateProfile(formData: z.infer<typeof UpdateProfileSchema>) {
@@ -134,7 +137,7 @@ export async function updateProfile(formData: z.infer<typeof UpdateProfileSchema
         return { error: "Invalid fields!" };
     }
 
-    const { name, email, whatsapp, password } = validatedFields.data;
+    const { name, email, whatsapp, password, notifyDailySummary, notifyNewTasks, notifyOverdueTasks } = validatedFields.data;
     const userId = session.user.id;
 
     // Check if email is taken by ANOTHER user
@@ -155,6 +158,9 @@ export async function updateProfile(formData: z.infer<typeof UpdateProfileSchema
         name,
         email,
         whatsapp: whatsapp || null,
+        ...(notifyDailySummary !== undefined && { notifyDailySummary }),
+        ...(notifyNewTasks !== undefined && { notifyNewTasks }),
+        ...(notifyOverdueTasks !== undefined && { notifyOverdueTasks }),
     };
 
     if (password && password.trim().length > 0) {
@@ -178,5 +184,40 @@ export async function updateProfile(formData: z.infer<typeof UpdateProfileSchema
     } catch (error) {
         console.error("Profile Update Error:", error);
         return { error: "Failed to update profile." };
+    }
+}
+
+const NotificationPreferencesSchema = z.object({
+    notifyDailySummary: z.boolean(),
+    notifyNewTasks: z.boolean(),
+    notifyOverdueTasks: z.boolean(),
+});
+
+export async function updateNotificationPreferences(formData: {
+    notifyDailySummary: boolean;
+    notifyNewTasks: boolean;
+    notifyOverdueTasks: boolean;
+}) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { error: "Unauthorized" };
+    }
+
+    const validatedFields = NotificationPreferencesSchema.safeParse(formData);
+    if (!validatedFields.success) {
+        return { error: "Invalid fields!" };
+    }
+
+    try {
+        await prisma.user.update({
+            where: { id: session.user.id },
+            data: validatedFields.data,
+        });
+
+        revalidatePath("/configuracoes");
+        return { success: "Preferences updated!" };
+    } catch (error) {
+        console.error("Notification Preferences Update Error:", error);
+        return { error: "Failed to update preferences." };
     }
 }
