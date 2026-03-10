@@ -1,5 +1,5 @@
-
 import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users, MessageSquare, Send, Paperclip } from "lucide-react";
 import { Task } from "@/types";
 import { format } from "date-fns";
@@ -16,6 +16,7 @@ interface CreateTaskModalProps {
 }
 
 export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, startWithMagic = false }: CreateTaskModalProps) {
+    const { data: session } = useSession();
     const [isEditing, setIsEditing] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [isMagicMode, setIsMagicMode] = useState(false);
@@ -46,10 +47,17 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         }).catch(err => console.error(err));
 
         // Fetch team members to populate the assignee dropdown
-        fetch("/api/team").then(res => res.json()).then(data => {
-            if (Array.isArray(data)) setTeamMembers(data);
-        }).catch(err => console.error(err));
-    }, []);
+        fetch("/api/team")
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    // Filter out the current user to avoid duplicate (since "Assign to me" is always present as an option)
+                    const filtered = data.filter((member: any) => member.id !== (session?.user as any)?.id);
+                    setTeamMembers(filtered);
+                }
+            })
+            .catch(err => console.error(err));
+    }, [session]);
 
     const titleInputRef = useRef<HTMLInputElement>(null);
 

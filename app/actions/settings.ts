@@ -67,7 +67,7 @@ export async function sendTestMessage() {
             return { success: false, error: "Configurações da API incompletas." };
         }
 
-        const message = "🔔 *Teste de Conexão - TaskFlow*\n\nSe você recebeu esta mensagem, a integração com o Evolution API está funcionando corretamente! 🚀";
+        const message = "🔔 *Teste de Conexão - TaskFlow*\n\nSe você recebeu esta mensagem, a integração com o Evolution API está funcionando corretamente! 🚀\n\nhttps://www.taskfreela.com.br/";
 
         const result = await evolutionService.sendText(
             settings.instanceName,

@@ -14,7 +14,7 @@ async function sendTaskAssignmentNotification(taskId: number, assignedToId: stri
         const settings = await prisma.settings.findUnique({ where: { id: 1 } });
         if (!settings || !settings.instanceName) return;
 
-        const task = await prisma.task.findUnique({
+        const task = await (prisma.task as any).findUnique({
             where: { id: taskId },
             include: {
                 assignedTo: { select: { name: true, whatsapp: true } },
@@ -27,7 +27,7 @@ async function sendTaskAssignmentNotification(taskId: number, assignedToId: stri
         const date = format(task.dueDate, "dd/MM/yyyy", { locale: ptBR });
         const projectInfo = task.project ? `\n*Projeto:* ${task.project.name}` : "";
         
-        const message = `👋 Olá ${task.assignedTo.name}!\n\nUma nova tarefa foi atribuída a você:\n\n*Título:* ${task.title}${projectInfo}\n*Data de Entrega:* ${date}\n\nBoa sorte! 🚀`;
+        const message = `👋 Olá ${task.assignedTo.name}!\n\nUma nova tarefa foi atribuída a você:\n\n*Título:* ${task.title}${projectInfo}\n*Data de Entrega:* ${date}\n\nBoa sorte! 🚀\n\nhttps://www.taskfreela.com.br/`;
 
         await evolutionService.sendText(
             settings.instanceName,
@@ -105,8 +105,8 @@ export async function POST(req: Request) {
             },
         });
 
-        if (task.assignedToId) {
-            // Trigger WhatsApp notification off-main-thread (as much as possible in Next.js)
+        if (task.assignedToId && task.assignedToId !== session.user.id) {
+            // Trigger WhatsApp notification off-main-thread
             sendTaskAssignmentNotification(task.id, task.assignedToId);
         }
 
@@ -161,8 +161,8 @@ export async function PUT(req: Request) {
             },
         });
 
-        // Trigger notification if assignedTo was changed or if it was a new assignment on an existing task
-        if (assignedToId && assignedToId !== existing.assignedToId) {
+        // Trigger notification if assignedTo was changed and it's not a self-assignment
+        if (assignedToId && assignedToId !== existing.assignedToId && assignedToId !== session.user.id) {
             sendTaskAssignmentNotification(task.id, assignedToId);
         }
 

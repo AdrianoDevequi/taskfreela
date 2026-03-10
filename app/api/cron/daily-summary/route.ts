@@ -77,7 +77,7 @@ export async function GET(req: Request) {
                 message += `✅ Você não tem tarefas pendentes!`;
             }
 
-            message += `\n\n_Acesse o sistema para mais detalhes._ 🚀`;
+            message += `\n\n_Acesse o sistema para mais detalhes._ 🚀\n\nhttps://www.taskfreela.com.br/`;
 
             const result = await evolutionService.sendText(
                 settings.instanceName,
