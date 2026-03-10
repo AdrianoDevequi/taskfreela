@@ -19,6 +19,18 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'adm.jupitersites.com.br',
+      },
+      {
+        protocol: 'https',
+        hostname: 'adm.jupitersites.com.br',
+      }
+    ],
+  },
 };
 
 export default nextConfig;
