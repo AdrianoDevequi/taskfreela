@@ -1,9 +1,11 @@
 
 import { useState, useEffect, useRef } from "react";
-import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users } from "lucide-react";
+import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users, MessageSquare, Send } from "lucide-react";
 import { Task } from "@/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface CreateTaskModalProps {
     isOpen: boolean;
@@ -17,6 +19,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
     const [isEditing, setIsEditing] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [isMagicMode, setIsMagicMode] = useState(false);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
 
     // Form States
     const [title, setTitle] = useState("");
@@ -29,6 +32,11 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
     // Assignee State
     const [assignedToId, setAssignedToId] = useState("");
     const [teamMembers, setTeamMembers] = useState<{id: string, name: string, email: string}[]>([]);
+
+    // Comments State
+    const [comments, setComments] = useState<any[]>([]);
+    const [newComment, setNewComment] = useState("");
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
     useEffect(() => {
         // Fetch projects to populate the select dropdown
@@ -50,6 +58,9 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                 setDueDate(new Date(taskToEdit.dueDate).toISOString().split("T")[0]);
                 setEstimatedTime(taskToEdit.estimatedTime || "");
                 setProjectId(taskToEdit.projectId || "");
+                if (taskToEdit.id) {
+                    fetchComments(taskToEdit.id.toString());
+                }
             } else {
                 // New Task
                 setIsEditing(true);
@@ -110,6 +121,11 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         if (!isOpen) return;
 
         const handlePaste = (e: ClipboardEvent) => {
+            // Ignore paste if we are focused inside an input or textarea
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+
             const items = e.clipboardData?.items;
             if (!items) return;
 
@@ -128,6 +144,102 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         window.addEventListener('paste', handlePaste);
         return () => window.removeEventListener('paste', handlePaste);
     }, [isOpen]);
+
+    const fetchComments = async (taskId: string) => {
+        try {
+            const res = await fetch(`/api/tasks/comments?taskId=${taskId}`);
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setComments(data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch comments", error);
+        }
+    };
+
+    const submitComment = async () => {
+        if (!newComment.trim() || !taskToEdit?.id) return;
+        setIsSubmittingComment(true);
+        try {
+            const res = await fetch("/api/tasks/comments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    taskId: taskToEdit.id,
+                    content: newComment
+                })
+            });
+            const data = await res.json();
+            if (data.success && data.comment) {
+                setComments(prev => [...prev, data.comment]);
+                setNewComment("");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao enviar comentário");
+        } finally {
+            setIsSubmittingComment(false);
+        }
+    };
+
+    const handleDescriptionPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (file) {
+                    e.preventDefault(); // Stop normal paste
+                    await uploadImageToDescription(file);
+                    return;
+                }
+            }
+        }
+    };
+
+    const uploadImageToDescription = async (file: File) => {
+        setIsUploadingImage(true);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const res = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+            });
+            const data = await res.json();
+
+            if (data.url) {
+                const markdownImage = `\n![imagem](${data.url})\n`;
+                const textarea = document.getElementById('task-description-textarea') as HTMLTextAreaElement;
+                
+                if (textarea) {
+                    const startPos = textarea.selectionStart;
+                    const endPos = textarea.selectionEnd;
+                    const newDescription = description.substring(0, startPos)
+                        + markdownImage
+                        + description.substring(endPos, description.length);
+                    setDescription(newDescription);
+                    
+                    // Reset focus and cursor position after a short delay to allow React to update
+                    setTimeout(() => {
+                        textarea.focus();
+                        textarea.setSelectionRange(startPos + markdownImage.length, startPos + markdownImage.length);
+                    }, 50);
+                } else {
+                    setDescription(prev => prev + markdownImage);
+                }
+            } else {
+                alert("Erro ao fazer upload da imagem");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Falha no upload da imagem");
+        } finally {
+            setIsUploadingImage(false);
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -158,6 +270,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         setAssignedToId("");
         setIsEditing(false);
         setIsMagicMode(false);
+        setComments([]);
+        setNewComment("");
         onClose();
     };
 
@@ -295,13 +409,72 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                         {/* Description - Highlighted & Readable */}
                         <div className="bg-muted/30 rounded-xl p-6 border border-border/50 min-h-[120px] max-h-[65vh] overflow-y-auto">
                             {description ? (
-                                <p className="text-lg leading-relaxed whitespace-pre-wrap text-foreground/90 font-medium">
-                                    {description}
-                                </p>
+                                <div className="text-sm leading-relaxed text-foreground/90 font-medium 
+                                    prose dark:prose-invert max-w-none 
+                                    prose-img:rounded-xl prose-img:border prose-img:border-border prose-img:max-h-[400px] prose-img:object-contain prose-img:mx-auto
+                                    prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+                                    prose-p:mb-4 last:prose-p:mb-0
+                                ">
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        {description}
+                                    </ReactMarkdown>
+                                </div>
                             ) : (
                                 <p className="text-muted-foreground italic opacity-50">Sem descrição.</p>
                             )}
                         </div>
+
+                        {/* Comments Section */}
+                        {taskToEdit && (
+                            <div className="mt-8 border-t border-border/50 pt-6">
+                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                    <MessageSquare size={18} />
+                                    Comentários
+                                </h3>
+                                
+                                <div className="space-y-4 mb-6">
+                                    {comments.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground italic">Nenhum comentário ainda.</p>
+                                    ) : (
+                                        comments.map(comment => (
+                                            <div key={comment.id} className="bg-muted/30 rounded-xl p-4 border border-border/50">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold">
+                                                        {comment.user?.name?.[0]?.toUpperCase() || "U"}
+                                                    </div>
+                                                    <span className="text-sm font-semibold">{comment.user?.name || "Usuário"}</span>
+                                                    <span className="text-xs text-muted-foreground ml-auto">
+                                                        {format(new Date(comment.createdAt), "dd MMM, HH:mm", { locale: ptBR })}
+                                                    </span>
+                                                </div>
+                                                <div className="text-sm text-foreground/90 whitespace-pre-wrap ml-8">
+                                                    {comment.content}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* Add Comment Input */}
+                                <div className="flex gap-2">
+                                    <textarea
+                                        value={newComment}
+                                        onChange={(e) => setNewComment(e.target.value)}
+                                        placeholder="Escreva um comentário..."
+                                        rows={2}
+                                        className="flex-1 bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+                                    />
+                                    <button
+                                        onClick={submitComment}
+                                        disabled={isSubmittingComment || !newComment.trim()}
+                                        className="bg-primary text-white rounded-xl px-4 py-2 font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center"
+                                        title="Enviar comentário"
+                                    >
+                                        {isSubmittingComment ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -402,13 +575,23 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                                 <AlignLeft size={14} /> Descrição
                             </label>
-                            <textarea
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                placeholder="Detalhes adicionais..."
-                                rows={5}
-                                className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 resize-none transition-all"
-                            />
+                            <div className="relative">
+                                <textarea
+                                    id="task-description-textarea"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    placeholder="Detalhes adicionais... (Cole prints com Ctrl + V)"
+                                    rows={5}
+                                    onPaste={handleDescriptionPaste}
+                                    className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 resize-y transition-all min-h-[120px]"
+                                />
+                                {isUploadingImage && (
+                                    <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center border border-primary/20 z-10">
+                                        <Loader2 size={24} className="animate-spin text-primary mb-2" />
+                                        <span className="text-xs font-bold text-primary animate-pulse">Enviando imagem...</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Actions */}

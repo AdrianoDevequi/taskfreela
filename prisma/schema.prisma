@@ -103,12 +103,28 @@ model task {
   assignedTo    user?      @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull, map: "Task_assignedToId_fkey")
   workspace     workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade, map: "Task_workspaceId_fkey")
   project       project?   @relation(fields: [projectId], references: [id], onDelete: SetNull, map: "Task_projectId_fkey")
+  comments      comment[]
 
   @@index([userId], map: "Task_userId_idx")
   @@index([workspaceId], map: "Task_workspaceId_idx")
   @@index([assignedToId], map: "Task_assignedToId_idx")
   @@index([projectId], map: "Task_projectId_idx")
 }
+
+model comment {
+  id        Int      @id @default(autoincrement())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  taskId    Int
+  userId    String
+  task      task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+}
+
 
 model user {
   id                String            @id @default(uuid())
@@ -128,6 +144,7 @@ model user {
   assignedTasks     task[]            @relation("TaskAssignee")
   activeWorkspace   workspace?        @relation("ActiveWorkspace", fields: [activeWorkspaceId], references: [id], onDelete: SetNull)
   workspaceMembers  WorkspaceMember[]
+  comments          comment[]
 
   @@index([activeWorkspaceId])
 }
