@@ -135,7 +135,7 @@ export default function Home() {
       </div>
 
       <TaskBoard
-        tasks={isSimpleMode ? tasks.filter(t => t.assignedToId === session?.user?.id) : tasks}
+        tasks={isSimpleMode ? tasks.filter(t => t.assignedTo?.id === session?.user?.id) : tasks}
         onTaskMove={handleTaskMove}
         onQuickAction={handleQuickAction}
         onEdit={handleEditTask}
