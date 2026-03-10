@@ -149,3 +149,55 @@ export async function DELETE(req: Request) {
         return NextResponse.json({ error: "Failed to remove member" }, { status: 500 });
     }
 }
+
+// PATCH: Update member's role (MANAGER only)
+export async function PATCH(req: Request) {
+    try {
+        const session = await auth();
+        if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        // Check DB for current user role
+        const currentUser = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            include: { workspaceMembers: true }
+        });
+        
+        const workspaceId = currentUser?.activeWorkspaceId;
+        const activeMember = currentUser?.workspaceMembers.find(m => m.workspaceId === workspaceId);
+        const currentUserRole = activeMember?.role;
+
+        if (currentUserRole !== "MANAGER" && currentUserRole !== "ADMIN") {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
+        const { userId, role } = await req.json();
+
+        if (!userId || !role) {
+            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        }
+
+        // Prevent changing own role
+        if (userId === session.user.id) {
+            return NextResponse.json({ error: "Cannot change your own role" }, { status: 400 });
+        }
+
+        const existingMember = await prisma.workspaceMember.findUnique({
+            where: { userId_workspaceId: { userId, workspaceId: workspaceId! } }
+        });
+
+        if (!existingMember) {
+            return NextResponse.json({ error: "User not in your workspace" }, { status: 404 });
+        }
+
+        await prisma.workspaceMember.update({
+            where: { id: existingMember.id },
+            data: { role }
+        });
+
+        return NextResponse.json({ success: true });
+
+    } catch (error) {
+        console.error("PATCH /api/team Error:", error);
+        return NextResponse.json({ error: "Failed to update member role" }, { status: 500 });
+    }
+}

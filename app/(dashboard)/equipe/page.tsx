@@ -66,6 +66,25 @@ export default function EquipePage() {
         }
     };
 
+    const handleChangeRole = async (userId: string, newRole: string) => {
+        try {
+            const res = await fetch(`/api/team`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, role: newRole }),
+            });
+            if (res.ok) {
+                setMessage({ type: 'success', text: 'Função atualizada.' });
+                fetchMembers();
+            } else {
+                const data = await res.json();
+                setMessage({ type: 'error', text: data.error || 'Erro ao atualizar função' });
+            }
+        } catch {
+            setMessage({ type: 'error', text: 'Erro de conexão' });
+        }
+    };
+
     return (
         <div className="max-w-4xl mx-auto">
             {/* Header */}
@@ -140,32 +159,35 @@ export default function EquipePage() {
                                     {member.image ? (
                                         <img src={member.image} alt={member.name || ''} className="w-9 h-9 rounded-full object-cover" />
                                     ) : (
-                                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
                                             {(member.name || member.email || '?')[0].toUpperCase()}
                                         </div>
                                     )}
-                                    <div>
-                                        <p className="text-sm font-medium text-white">{member.name || 'Sem nome'}</p>
-                                        <p className="text-xs text-zinc-400 flex items-center gap-1">
-                                            <Mail size={11} />
-                                            {member.email}
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium text-white truncate">{member.name || 'Sem nome'}</p>
+                                        <p className="text-xs text-zinc-400 flex items-center gap-1 truncate">
+                                            <Mail size={11} className="shrink-0" />
+                                            <span className="truncate">{member.email}</span>
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1 ${
-                                        member.role === 'MANAGER' || member.role === 'ADMIN'
-                                            ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
-                                            : 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
-                                    }`}>
-                                        {member.role === 'MANAGER' || member.role === 'ADMIN'
-                                            ? <><Crown size={11} /> Gestor</>
-                                            : <><User2 size={11} /> Funcionário</>
-                                        }
-                                    </span>
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <select
+                                        value={member.role}
+                                        onChange={(e) => handleChangeRole(member.id, e.target.value)}
+                                        className={`text-xs font-medium px-2 py-1 rounded-full outline-none appearance-none cursor-pointer pr-6 relative bg-no-repeat bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2210%22%20height%3D%225%22%20viewBox%3D%220%200%2010%205%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%205L0%200H10L5%205Z%22%20fill%3D%22currentColor%22%2F%3E%3C%2Fsvg%3E')] bg-[position:calc(100%-8px)_center] ${
+                                            member.role === 'MANAGER' || member.role === 'ADMIN'
+                                                ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
+                                                : 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+                                        }`}
+                                    >
+                                        <option value="MANAGER" className="bg-zinc-800 text-white">Gestor</option>
+                                        <option value="EMPLOYEE" className="bg-zinc-800 text-white">Funcionário</option>
+                                    </select>
+
                                     <button
                                         onClick={() => handleRemove(member.id, member.name)}
-                                        className="text-zinc-600 hover:text-red-400 transition-colors p-1.5 hover:bg-red-500/10 rounded-lg"
+                                        className="text-zinc-600 hover:text-red-400 transition-colors p-1.5 hover:bg-red-500/10 rounded-lg shrink-0"
                                         title="Remover da equipe"
                                     >
                                         <Trash2 size={16} />
