@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
-import { db } from '@/lib/db';
+import { prisma } from '@/lib/prisma';
 import { signIn, signOut, auth } from '@/auth';
 import { AuthError } from 'next-auth';
 
@@ -34,7 +34,7 @@ export async function register(formData: z.infer<typeof RegisterSchema>) {
     const { email, password, name } = validatedFields.data;
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const existingUser = await db.user.findUnique({ where: { email } });
+    const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
         return { error: "Email already in use!" };
     }
@@ -43,7 +43,7 @@ export async function register(formData: z.infer<typeof RegisterSchema>) {
     const slug = `${name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now()}`;
 
     // Create workspace and user in a transaction
-    await db.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
         const workspace = await tx.workspace.create({
             data: { name: `Empresa de ${name}`, slug },
         });
@@ -135,7 +135,7 @@ export async function updateProfile(formData: z.infer<typeof UpdateProfileSchema
     const userId = session.user.id;
 
     // Check if email is taken by ANOTHER user
-    const existingUser = await db.user.findFirst({
+    const existingUser = await prisma.user.findFirst({
         where: {
             email: email,
             NOT: {
@@ -165,7 +165,7 @@ export async function updateProfile(formData: z.infer<typeof UpdateProfileSchema
     }
 
     try {
-        await db.user.update({
+        await prisma.user.update({
             where: { id: userId },
             data: updateData,
         });
