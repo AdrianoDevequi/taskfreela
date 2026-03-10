@@ -122,6 +122,8 @@ const UpdateProfileSchema = z.object({
 
 export async function updateProfile(formData: z.infer<typeof UpdateProfileSchema>) {
     const session = await auth();
+    console.log("DEBUG: updateProfile session:", !!session, session?.user?.id);
+    
     if (!session?.user?.id) {
         return { error: "Unauthorized" };
     }
