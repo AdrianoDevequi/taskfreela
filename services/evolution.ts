@@ -1,11 +1,19 @@
 import { getSettings } from "@/app/actions/settings";
 
 export class EvolutionService {
+    private formatNumber(number: string) {
+        let cleaned = number.replace(/\D/g, "");
+        // If it looks like a Brazilian number without country code (10 or 11 digits)
+        if (cleaned.length === 10 || cleaned.length === 11) {
+            cleaned = `55${cleaned}`;
+        }
+        return cleaned;
+    }
+
     private async getConfig() {
         const settings = await getSettings();
         let baseUrl = settings?.apiUrl?.replace(/\/+$/, "") || "";
         
-        // Add protocol if missing
         if (baseUrl && !baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
             baseUrl = `https://${baseUrl}`;
         }
@@ -19,17 +27,14 @@ export class EvolutionService {
     async sendText(instanceName: string, number: string, text: string) {
         const { baseUrl, apiKey } = await this.getConfig();
         if (!baseUrl || !apiKey) {
-            console.error("Evolution API Configuration missing");
-            return false;
+            return { success: false, error: "Configuração da API Evolution ausente" };
         }
 
-        try {
-            // Evolution API v2/v1 generic endpoint construction
-            // Typically: /message/sendText/{instanceName}
-            const url = `${baseUrl}/message/sendText/${instanceName}`;
+        const formattedNumber = this.formatNumber(number);
 
-            console.log(`[Evolution] Sending message to ${number}...`);
-            console.log(`[Evolution] URL: ${url}`);
+        try {
+            const url = `${baseUrl}/message/sendText/${instanceName}`;
+            console.log(`[Evolution] Sending message to ${formattedNumber}...`);
 
             const response = await fetch(url, {
                 method: "POST",
@@ -38,7 +43,7 @@ export class EvolutionService {
                     "apikey": apiKey
                 },
                 body: JSON.stringify({
-                    number,
+                    number: formattedNumber,
                     options: {
                         delay: 1200,
                         presence: "composing",
@@ -53,16 +58,15 @@ export class EvolutionService {
 
             if (!response.ok) {
                 const error = await response.text();
-                console.error(`[Evolution] Error sending message to ${number}: ${response.status} - ${error}`);
-                return false;
+                console.error(`[Evolution] Error sending message to ${formattedNumber}: ${response.status} - ${error}`);
+                return { success: false, error: `API Error ${response.status}: ${error}`, status: response.status };
             }
 
             const data = await response.json();
-            console.log(`[Evolution] Success sending message to ${number}:`, JSON.stringify(data));
-            return data;
-        } catch (error) {
-            console.error(`[Evolution] Exception sending message to ${number}:`, error);
-            return false;
+            return { success: true, data };
+        } catch (error: any) {
+            console.error(`[Evolution] Exception sending message to ${formattedNumber}:`, error);
+            return { success: false, error: error.message || "Erro desconhecido" };
         }
     }
 }

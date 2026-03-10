@@ -75,10 +75,10 @@ export async function sendTestMessage() {
             message
         );
 
-        if (result) {
+        if (result.success) {
             return { success: true };
         } else {
-            return { success: false, error: "Falha ao enviar mensagem (Verifique se a instância está conectada)." };
+            return { success: false, error: `Falha: ${result.error || "Erro desconhecido"}` };
         }
     } catch (error) {
         console.error("Test message failed:", error);

@@ -79,17 +79,17 @@ export async function GET(req: Request) {
 
             message += `\n\n_Acesse o sistema para mais detalhes._ 🚀`;
 
-            const success = await evolutionService.sendText(
+            const result = await evolutionService.sendText(
                 settings.instanceName,
                 user.whatsapp,
                 message
             );
 
-            if (success) {
+            if (result.success) {
                 results.successCount++;
             } else {
                 results.failureCount++;
-                results.errors.push(`Failed to send to ${user.whatsapp}`);
+                results.errors.push(`Failed to send to ${user.whatsapp}: ${result.error}`);
             }
         }
 
