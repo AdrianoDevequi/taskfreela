@@ -46,6 +46,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                 token.id = user.id;
                 token.role = (user as any).role;
                 token.workspaceId = (user as any).workspaceId;
+                token.whatsapp = (user as any).whatsapp;
                 token.isSuperAdmin = (user as any).isSuperAdmin;
             }
 
