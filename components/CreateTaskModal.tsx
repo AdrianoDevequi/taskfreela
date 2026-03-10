@@ -20,6 +20,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [isMagicMode, setIsMagicMode] = useState(false);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
     // Form States
     const [title, setTitle] = useState("");
@@ -421,11 +422,22 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                             {description ? (
                                 <div className="text-sm leading-relaxed text-foreground/90 font-medium 
                                     prose dark:prose-invert max-w-none 
-                                    prose-img:rounded-xl prose-img:border prose-img:border-border prose-img:max-h-[400px] prose-img:object-contain prose-img:mx-auto
+                                    prose-img:rounded-xl prose-img:border prose-img:border-border prose-img:max-h-[200px] prose-img:object-cover prose-img:mx-auto prose-img:cursor-pointer prose-img:transition-transform hover:prose-img:scale-[1.02]
                                     prose-a:text-primary prose-a:no-underline hover:prose-a:underline
                                     prose-p:mb-4 last:prose-p:mb-0
                                 ">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                    <ReactMarkdown 
+                                        remarkPlugins={[remarkGfm]}
+                                        components={{
+                                            img: ({node, ...props}) => (
+                                                <img 
+                                                    {...props} 
+                                                    onClick={() => setZoomedImage((props.src as string) || null)}
+                                                    alt={props.alt || "Task Image"}
+                                                />
+                                            )
+                                        }}
+                                    >
                                         {description}
                                     </ReactMarkdown>
                                 </div>
@@ -627,6 +639,27 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                             </button>
                         </div>
                     </form>
+                )}
+
+                {/* Fullscreen Image Zoom Overlay */}
+                {zoomedImage && (
+                    <div 
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in"
+                        onClick={() => setZoomedImage(null)}
+                    >
+                        <button 
+                            className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full p-2 transition-all"
+                            onClick={(e) => { e.stopPropagation(); setZoomedImage(null); }}
+                        >
+                            <X size={24} />
+                        </button>
+                        <img 
+                            src={zoomedImage} 
+                            alt="Zoomed Task Image" 
+                            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200"
+                            onClick={(e) => e.stopPropagation()} // Prevent clicking image from closing
+                        />
+                    </div>
                 )}
             </div>
         </div>
