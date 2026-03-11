@@ -3,6 +3,7 @@ import { Task } from "@/types";
 import { Calendar, AlertCircle, Pencil, Trash2, ChevronDown, ChevronUp, Clock, Briefcase, Repeat } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useSimpleMode } from "@/app/context/SimpleModeContext";
 
 interface TaskCardProps {
     task: Task;
@@ -12,6 +13,7 @@ interface TaskCardProps {
 }
 
 export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: TaskCardProps) {
+    const { isSimpleMode } = useSimpleMode();
     const dueDate = new Date(task.dueDate);
     const isOverdue = isPast(dueDate) && !isToday(dueDate) && task.status !== 'DONE';
 
@@ -134,7 +136,7 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
                     )}
 
                     {/* Assignee Avatar */}
-                    {task.assignedTo && (
+                    {task.assignedTo && !isSimpleMode && (
                         <div className="ml-auto flex items-center gap-1.5 bg-muted/30 pl-1.5 pr-2 py-1 rounded-full border border-border/50 shrink-0" title={`Responsável: ${task.assignedTo.name}`}>
                             {task.assignedTo.image ? (
                                 <img src={task.assignedTo.image} alt={task.assignedTo.name} className="w-4 h-4 rounded-full object-cover" />
