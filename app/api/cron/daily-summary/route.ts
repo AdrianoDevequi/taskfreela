@@ -54,8 +54,24 @@ export async function GET(req: Request) {
 
             let message = `📝 *Resumo Diário de Tarefas* - ${format(new Date(), "dd/MM/yyyy")}\n\nOlá ${user.name || "Colaborador"}, aqui está o seu resumo de hoje:\n\n`;
 
+            const threeDaysFromNow = new Date();
+            threeDaysFromNow.setHours(23, 59, 59, 999);
+            threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+
             const overdue = user.assignedTasks.filter((t: any) => isPast(t.dueDate) && !isToday(t.dueDate));
-            const upcoming = user.assignedTasks.filter((t: any) => !isPast(t.dueDate) || isToday(t.dueDate));
+            const upcoming = user.assignedTasks.filter((t: any) => {
+                const isFuture = !isPast(t.dueDate) || isToday(t.dueDate);
+                if (!isFuture) return false;
+                
+                // For recurring tasks, only show them on the EXACT due date
+                if (t.isRecurring) {
+                    return isToday(t.dueDate);
+                }
+                
+                // For normal tasks, show only up to 3 days ahead to avoid spam
+                const taskDate = new Date(t.dueDate);
+                return taskDate <= threeDaysFromNow;
+            });
 
             if (overdue.length > 0) {
                 message += `🚨 *ATRASADAS:*\n`;
