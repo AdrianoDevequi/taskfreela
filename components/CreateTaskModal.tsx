@@ -333,7 +333,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         }
 
         // In Simple Mode, force the assignee to be the current user
-        const finalAssigneeId = isSimpleMode ? (session?.user as any)?.id : (assignedToId || null);
+        const currentUserId = (session?.user as any)?.id;
+        const finalAssigneeId = isSimpleMode ? currentUserId : (assignedToId || null);
         const finalProjectId = isSimpleMode ? null : (projectId || null);
 
         onSave({

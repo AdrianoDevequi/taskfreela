@@ -99,7 +99,7 @@ export async function POST(req: Request) {
                 estimatedTime,
                 userId: session.user.id,
                 workspaceId,
-                assignedToId: assignedToId || null,
+                assignedToId: assignedToId || session.user.id,
                 projectId: projectId || null,
                 isMandatory: typeof isMandatory === 'boolean' ? isMandatory : false,
                 isRecurring: typeof isRecurring === 'boolean' ? isRecurring : false,
