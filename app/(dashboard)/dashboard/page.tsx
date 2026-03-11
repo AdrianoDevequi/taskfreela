@@ -21,6 +21,22 @@ export default function Home() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [startWithMagic, setStartWithMagic] = useState(false);
 
+  // Fallback for NextAuth Client Session Bug
+  const [activeUser, setActiveUser] = useState<{ id?: string; email?: string } | null>(null);
+
+  useEffect(() => {
+    // Explicitly fetch user ID and Email from the server side API
+    // This bypasses the buggy useSession() client cache behavior
+    fetch("/api/user")
+      .then(res => res.json())
+      .then(data => {
+        if (data && !data.error) {
+          setActiveUser(data);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
   const fetchTasks = async () => {
     try {
       const res = await fetch("/api/tasks");
@@ -172,8 +188,10 @@ export default function Home() {
             ? tasks.filter(t => {
                 const assignedToId = t.assignedTo?.id;
                 const assignedToEmail = (t.assignedTo as any)?.email;
-                const userId = (session?.user as any)?.id;
-                const userEmail = session?.user?.email;
+
+                // Priority 1: Use safe `activeUser` from API. Priority 2: useSession() cache.
+                const userId = activeUser?.id || (session?.user as any)?.id;
+                const userEmail = activeUser?.email || session?.user?.email;
                 
                 // Keep this true if it's assigned to the current user
                 const isMine = (assignedToId && userId && assignedToId === userId) || 
