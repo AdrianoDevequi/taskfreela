@@ -175,13 +175,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* TEMP DEBUG */}
-      <div className="bg-black/50 overflow-auto p-4 text-xs font-mono text-green-400 mb-4 rounded border border-green-500/30 max-h-48">
-          <div><strong className="text-white">DEBUG MODE:</strong></div>
-          <pre>{JSON.stringify(session, null, 2)}</pre>
-          <div>Total Tasks Loaded: {tasks.length}</div>
-      </div>
-
       <TaskBoard
         tasks={
           isSimpleMode || !showTeamTasks
@@ -193,8 +186,9 @@ export default function Home() {
                 const userId = activeUser?.id || (session?.user as any)?.id;
                 const userEmail = activeUser?.email || session?.user?.email;
                 
-                // Keep this true if it's assigned to the current user
-                const isMine = (assignedToId && userId && assignedToId === userId) || 
+                // Keep this true if it's assigned to the current user OR if it's unassigned
+                const isMine = (!assignedToId) || 
+                               (assignedToId && userId && assignedToId === userId) || 
                                (assignedToEmail && userEmail && assignedToEmail === userEmail);
                 return isMine;
               }) 
