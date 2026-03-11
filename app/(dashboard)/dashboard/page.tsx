@@ -162,7 +162,10 @@ export default function Home() {
       <TaskBoard
         tasks={
           isSimpleMode || !showTeamTasks
-            ? tasks.filter(t => t.assignedTo?.id === session?.user?.id) 
+            ? tasks.filter(t => 
+                t.assignedTo && session?.user && 
+                ((t.assignedTo as any).email === session.user.email || t.assignedTo.id === (session.user as any).id)
+              ) 
             : tasks
         }
         onTaskMove={handleTaskMove}
