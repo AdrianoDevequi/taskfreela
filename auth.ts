@@ -59,6 +59,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         async session({ session, token }) {
             if (token.sub && session.user) {
                 session.user.id = token.sub;
+                session.user.email = token.email as string;
                 (session.user as any).role = token.role;
                 (session.user as any).workspaceId = token.workspaceId;
                 (session.user as any).whatsapp = token.whatsapp;
