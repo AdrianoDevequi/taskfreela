@@ -10,11 +10,11 @@ export const metadata: Metadata = {
   description: "A simple and fast task management system.",
   icons: {
     icon: [
-      { url: '/favicon.ico?v=2' },
-      { url: '/icon.png?v=2', type: 'image/png' },
+      { url: '/favicon.ico?v=3' },
+      { url: '/icon.png?v=3', type: 'image/png' },
     ],
     apple: [
-      { url: '/icons/icon-192.png?v=2' }
+      { url: '/icons/icon-192.png?v=3' }
     ]
   }
 };
