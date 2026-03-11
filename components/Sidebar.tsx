@@ -1,7 +1,7 @@
 "use client";
 
 import { logout } from "@/app/lib/actions";
-import { LayoutDashboard, Users, User, Settings, LogOut, CheckSquare, BarChart3, Bell, Calendar, Briefcase } from "lucide-react";
+import { LayoutDashboard, Users, User, Settings, LogOut, CheckSquare, BarChart3, Bell, Calendar, Briefcase, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
@@ -30,6 +30,7 @@ export default function Sidebar({ user, className, onLinkClick }: { user: any, c
                 <NavItem href="/agenda" icon={Calendar} label="Agenda" onClick={onLinkClick} />
                 <NavItem href="/reports" icon={BarChart3} label="Relatórios" onClick={onLinkClick} />
                 {!isSimpleMode && <NavItem href="/equipe" icon={Users} label="Equipe" onClick={onLinkClick} />}
+                {!isSimpleMode && user?.isSuperAdmin && <NavItem href="/usuarios" icon={ShieldAlert} label="Usuários" onClick={onLinkClick} />}
                 <NavItem href="/configuracoes" icon={Settings} label="Configurações" onClick={onLinkClick} />
             </nav>
 
