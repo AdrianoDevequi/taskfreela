@@ -162,10 +162,17 @@ export default function Home() {
       <TaskBoard
         tasks={
           isSimpleMode || !showTeamTasks
-            ? tasks.filter(t => 
-                t.assignedTo && session?.user && 
-                ((t.assignedTo as any).email === session.user.email || t.assignedTo.id === (session.user as any).id)
-              ) 
+            ? tasks.filter(t => {
+                const assignedToId = t.assignedTo?.id;
+                const assignedToEmail = (t.assignedTo as any)?.email;
+                const userId = (session?.user as any)?.id;
+                const userEmail = session?.user?.email;
+                
+                // Keep this true if it's assigned to the current user
+                const isMine = (assignedToId && userId && assignedToId === userId) || 
+                               (assignedToEmail && userEmail && assignedToEmail === userEmail);
+                return isMine;
+              }) 
             : tasks
         }
         onTaskMove={handleTaskMove}

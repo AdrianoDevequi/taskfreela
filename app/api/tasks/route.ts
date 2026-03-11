@@ -51,10 +51,20 @@ async function sendTaskAssignmentNotification(taskId: number, assignedToId: stri
 export async function GET() {
     try {
         const session = await getSession();
-        if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        console.log("GET /api/tasks -> session:", JSON.stringify(session, null, 2));
+
+        if (!session?.user?.id) {
+            console.log("GET /api/tasks -> Missing session.user.id");
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
         const workspaceId = (session.user as any).workspaceId as string | null;
-        if (!workspaceId) return NextResponse.json([]);
+        console.log("GET /api/tasks -> workspaceId:", workspaceId);
+
+        if (!workspaceId) {
+            console.log("GET /api/tasks -> Missing workspaceId, returning []");
+            return NextResponse.json([]);
+        }
 
         const tasks = await prisma.task.findMany({
             where: { workspaceId },
@@ -72,6 +82,7 @@ export async function GET() {
             },
         });
 
+        console.log("GET /api/tasks -> Found tasks count:", tasks.length);
         return NextResponse.json(tasks);
     } catch (error) {
         console.error("GET /api/tasks Error:", error);
