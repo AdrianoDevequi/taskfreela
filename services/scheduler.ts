@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { evolutionService } from "@/services/evolution";
+import { pushService } from "@/services/push";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -70,6 +71,13 @@ export async function checkOverdueTasks() {
                     user.whatsapp,
                     message
                 );
+
+                await pushService.sendToUser(user.id, {
+                    title: "Tarefas Atrasadas 🚨",
+                    body: `Você possui ${overdueCount} tarefa(s) atrasada(s).`,
+                    url: "https://www.taskfreela.com.br/dashboard"
+                });
+
                 totalMessagesSent++;
 
                 // Small delay to avoid rate limiting
@@ -178,6 +186,13 @@ export async function checkMandatoryTasks() {
                     user.whatsapp,
                     message
                 );
+
+                await pushService.sendToUser(user.id, {
+                    title: "Tarefas Obrigatórias de Hoje 📌",
+                    body: `Você possui ${mandatoryCount} tarefa(s) obrigatória(s) para hoje.`,
+                    url: "https://www.taskfreela.com.br/dashboard"
+                });
+
                 totalMessagesSent++;
 
                 await new Promise(resolve => setTimeout(resolve, 1000));

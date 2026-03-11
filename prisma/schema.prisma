@@ -156,6 +156,7 @@ model user {
   activeWorkspace   workspace?        @relation("ActiveWorkspace", fields: [activeWorkspaceId], references: [id], onDelete: SetNull)
   workspaceMembers  WorkspaceMember[]
   comments          comment[]
+  pushSubscriptions PushSubscription[]
 
   @@index([activeWorkspaceId])
 }
@@ -206,4 +207,17 @@ model project {
 
   @@index([workspaceId], map: "Project_workspaceId_idx")
   @@map("Project")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  endpoint  String   @unique @db.VarChar(512)
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }

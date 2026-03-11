@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { evolutionService } from "@/services/evolution";
-import { format, isPast, isToday, startOfDay } from "date-fns";
+import { pushService } from "@/services/push";
+import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export async function GET(req: Request) {
@@ -101,6 +102,12 @@ export async function GET(req: Request) {
                 user.whatsapp,
                 message
             );
+
+            await pushService.sendToUser(user.id, {
+                title: "Resumo Diário de Tarefas 📝",
+                body: "O seu resumo diário já está disponível.",
+                url: "https://www.taskfreela.com.br/dashboard"
+            });
 
             if (result.success) {
                 results.successCount++;

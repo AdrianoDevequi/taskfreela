@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { evolutionService } from "@/services/evolution";
+import { pushService } from "@/services/push";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -34,6 +35,13 @@ async function sendTaskAssignmentNotification(taskId: number, assignedToId: stri
             task.assignedTo.whatsapp,
             message
         );
+
+        // Web Push Notification
+        await pushService.sendToUser(assignedToId, {
+            title: "Nova Tarefa Atribuída 📋",
+            body: `Você foi atribuído à tarefa: ${task.title}`,
+            url: `https://www.taskfreela.com.br/dashboard/?task=${task.id}`
+        });
     } catch (error) {
         console.error("Error sending WhatsApp notification:", error);
     }

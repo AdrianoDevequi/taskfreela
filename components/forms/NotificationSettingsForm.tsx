@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { updateNotificationPreferences } from "@/app/lib/actions";
-import { Bell, Loader2 } from "lucide-react";
+import { Bell, Loader2, MonitorSmartphone } from "lucide-react";
 
 interface NotificationSettingsFormProps {
     user: {
@@ -16,12 +16,111 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState({ text: "", type: "" });
     
-    // Store local state for optimistic UI updates
     const [preferences, setPreferences] = useState({
         notifyDailySummary: user.notifyDailySummary,
         notifyNewTasks: user.notifyNewTasks,
         notifyOverdueTasks: user.notifyOverdueTasks
     });
+
+    const [isPushEnabled, setIsPushEnabled] = useState(false);
+    const [isPushLoading, setIsPushLoading] = useState(true);
+
+    useEffect(() => {
+        // Check if push is supported and if already subscribed
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            navigator.serviceWorker.ready.then(reg => {
+                reg.pushManager.getSubscription().then(sub => {
+                    if (sub) setIsPushEnabled(true);
+                    setIsPushLoading(false);
+                }).catch(() => setIsPushLoading(false));
+            }).catch(() => setIsPushLoading(false));
+        } else {
+            setIsPushLoading(false); // Not supported
+        }
+    }, []);
+
+    // Helper to convert VAPID key
+    function urlBase64ToUint8Array(base64String: string) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
+      
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+      
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    const handlePushToggle = async () => {
+        if (!('serviceWorker' in navigator && 'PushManager' in window)) {
+            setMessage({ text: "Push Notifications não são suportadas neste navegador.", type: "error" });
+            return;
+        }
+
+        setIsPushLoading(true);
+        setMessage({ text: "", type: "" });
+
+        if (isPushEnabled) {
+            // Unsubscribe
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.getSubscription();
+                if (sub) {
+                    await sub.unsubscribe();
+                    setIsPushEnabled(false);
+                    setMessage({ text: "Notificações do navegador desativadas neste dispositivo.", type: "success" });
+                }
+            } catch (error) {
+                console.error("Error unsubscribing", error);
+                setMessage({ text: "Erro ao desativar notificações do navegador.", type: "error" });
+            } finally {
+                setIsPushLoading(false);
+            }
+            return;
+        }
+
+        // Subscribe
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                setIsPushLoading(false);
+                setMessage({ text: "Permissão de notificação negada no navegador.", type: "error" });
+                setIsPushEnabled(false);
+                return;
+            }
+
+            const reg = await navigator.serviceWorker.ready;
+            
+            // Get public key from env directly if available, otherwise fallback (we'll fetch if needed, but here we can inject via NEXT_PUBLIC)
+            const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "BECbbGAQXAFRkgtG8k3nWhXqZxzf1R-0LnUz_dMgAxgjAo6UFqt1smYYIrHxBI3y5UbuK4iU0fhl2AbYGJI-UFY";
+            
+            const sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+            });
+
+            // Send to our backend
+            const response = await fetch('/api/push/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(sub)
+            });
+
+            if (!response.ok) throw new Error("Failed to save subscription");
+
+            setIsPushEnabled(true);
+            setMessage({ text: "Dispositivo registrado para receber notificações com sucesso!", type: "success" });
+        } catch (error) {
+            console.error("Push subscription error:", error);
+            setMessage({ text: "Erro ao ativar notificações do navegador. Tente limpar os dados do site.", type: "error" });
+        } finally {
+            setIsPushLoading(false);
+        }
+    };
 
     const handleToggle = async (field: keyof typeof preferences) => {
         setIsLoading(true);
@@ -55,16 +154,39 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
     };
 
     return (
-        <div className="bg-card border border-border rounded-xl p-6 relative overflow-hidden group">
-            <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-primary/10 text-primary rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <Bell size={24} />
+        <div className="space-y-6">
+            <div className="bg-card border border-border rounded-xl p-6 relative overflow-hidden group">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-primary/10 text-primary rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                        <MonitorSmartphone size={24} />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold">Notificações Nativas do Aparelho</h2>
+                        <p className="text-sm text-muted-foreground">Receba alertas diretos na tela do seu celular ou computador.</p>
+                    </div>
                 </div>
-                <div>
-                    <h2 className="text-xl font-bold">Notificações do WhatsApp</h2>
-                    <p className="text-sm text-muted-foreground">Escolha quais alertas você deseja receber no seu número.</p>
+
+                <div className="space-y-6">
+                    <ToggleItem 
+                        title="Ativar PWA Web Push"
+                        description="Habilita este dispositivo atual para receber os alertas pop-up do sistema."
+                        checked={isPushEnabled}
+                        onChange={handlePushToggle}
+                        disabled={isPushLoading}
+                    />
                 </div>
             </div>
+
+            <div className="bg-card border border-border rounded-xl p-6 relative overflow-hidden group">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-green-500/10 text-green-500 rounded-lg group-hover:bg-green-500 group-hover:text-white transition-colors">
+                        <Bell size={24} />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold">Notificações do WhatsApp</h2>
+                        <p className="text-sm text-muted-foreground">Escolha quais alertas curtos você deseja receber no seu número.</p>
+                    </div>
+                </div>
 
             <div className="space-y-6">
                 <ToggleItem 
@@ -97,6 +219,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                     <p>{message.text}</p>
                 </div>
             )}
+            </div>
         </div>
     );
 }
