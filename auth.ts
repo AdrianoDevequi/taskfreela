@@ -58,9 +58,9 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
             return token;
         },
         async session({ session, token }) {
-            if (session.user) {
-                session.user.id = (token.sub as string) || (token.id as string);
-                session.user.email = (token.email as string) || session.user.email;
+            if (session?.user && token) {
+                session.user.id = (token.sub as string) || (token.id as string) || "";
+                session.user.email = (token.email as string) || session.user.email || "";
                 (session.user as any).role = token.role;
                 (session.user as any).workspaceId = token.workspaceId;
                 (session.user as any).whatsapp = token.whatsapp;
