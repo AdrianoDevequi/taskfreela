@@ -159,6 +159,13 @@ export default function Home() {
         </div>
       </div>
 
+      {/* TEMP DEBUG */}
+      <div className="bg-black/50 overflow-auto p-4 text-xs font-mono text-green-400 mb-4 rounded border border-green-500/30 max-h-48">
+          <div><strong className="text-white">DEBUG MODE:</strong></div>
+          <pre>{JSON.stringify(session, null, 2)}</pre>
+          <div>Total Tasks Loaded: {tasks.length}</div>
+      </div>
+
       <TaskBoard
         tasks={
           isSimpleMode || !showTeamTasks

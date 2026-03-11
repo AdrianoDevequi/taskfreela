@@ -43,7 +43,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     callbacks: {
         async jwt({ token, user, trigger, session }) {
             if (user) {
-                token.id = user.id;
+                token.id = user.id || token.sub;
+                token.email = user.email;
                 token.role = (user as any).role;
                 token.workspaceId = (user as any).workspaceId;
                 token.whatsapp = (user as any).whatsapp;
@@ -57,9 +58,9 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
             return token;
         },
         async session({ session, token }) {
-            if (token.sub && session.user) {
-                session.user.id = token.sub;
-                session.user.email = token.email as string;
+            if (session.user) {
+                session.user.id = (token.sub as string) || (token.id as string);
+                session.user.email = (token.email as string) || session.user.email;
                 (session.user as any).role = token.role;
                 (session.user as any).workspaceId = token.workspaceId;
                 (session.user as any).whatsapp = token.whatsapp;
