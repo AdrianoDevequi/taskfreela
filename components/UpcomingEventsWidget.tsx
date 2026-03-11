@@ -72,7 +72,7 @@ export function UpcomingEventsWidget() {
 
     if (events.length === 0) {
         return (
-            <div className="mt-4 md:mt-8 border-none md:border-t md:border-white/10 pt-0 md:pt-8">
+            <div className="mt-2 md:mt-4 border-none md:border-t md:border-white/10 pt-0 md:pt-4">
                 <div className="p-6 bg-gray-900/30 border border-white/5 rounded-xl text-center">
                     <p className="text-gray-400 text-sm">Nenhum evento próximo encontrado.</p>
                     <p className="text-xs text-gray-600 mt-1">Verifique se sua agenda está conectada.</p>
@@ -82,7 +82,7 @@ export function UpcomingEventsWidget() {
     }
 
     return (
-        <div className="mt-4 md:mt-8 border-none md:border-t md:border-white/10 pt-0 md:pt-8">
+        <div className="mt-2 md:mt-4 border-none md:border-t md:border-white/10 pt-0 md:pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {events.map((event, index) => {
                     const startDate = new Date(event.start.dateTime || event.start.date || "");
