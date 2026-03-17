@@ -127,7 +127,7 @@ export async function POST(req: Request) {
             } as any,
             include: {
                 assignedTo: { select: { id: true, name: true, email: true, image: true } },
-                project: { select: { id: true, name: true } },
+                project: { select: { id: true, name: true, url: true } },
             },
         });
 
@@ -187,7 +187,7 @@ export async function PUT(req: Request) {
             } as any,
             include: {
                 assignedTo: { select: { id: true, name: true, email: true, image: true } },
-                project: { select: { id: true, name: true } },
+                project: { select: { id: true, name: true, url: true } },
             },
         });
 

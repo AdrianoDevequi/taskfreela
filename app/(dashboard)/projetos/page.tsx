@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Briefcase, Plus, Search, Loader2, Trash2, Edit2 } from 'lucide-react';
+import { Briefcase, Plus, Search, Loader2, Trash2, Edit2, ExternalLink } from 'lucide-react';
 
 interface Project {
     id: string;
     name: string;
     description: string | null;
+    url: string | null;
     status: string;
     createdAt: string;
     _count?: { tasks: number };
@@ -21,7 +22,7 @@ export default function ProjetosPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     const [editingProject, setEditingProject] = useState<Project | null>(null);
-    const [formData, setFormData] = useState({ name: '', description: '', status: 'ACTIVE' });
+    const [formData, setFormData] = useState({ name: '', description: '', url: '', status: 'ACTIVE' });
 
     const fetchProjects = async () => {
         setLoading(true);
@@ -41,10 +42,10 @@ export default function ProjetosPage() {
     const handleOpenModal = (project?: Project) => {
         if (project) {
             setEditingProject(project);
-            setFormData({ name: project.name, description: project.description || '', status: project.status });
+            setFormData({ name: project.name, description: project.description || '', url: project.url || '', status: project.status });
         } else {
             setEditingProject(null);
-            setFormData({ name: '', description: '', status: 'ACTIVE' });
+            setFormData({ name: '', description: '', url: '', status: 'ACTIVE' });
         }
         setIsModalOpen(true);
     };
@@ -161,8 +162,23 @@ export default function ProjetosPage() {
                                     </p>
                                     
                                     <div className="flex items-center justify-between border-t border-zinc-700/50 pt-4 mt-auto">
-                                        <div className="text-xs font-medium text-zinc-300 bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700">
-                                            {project._count?.tasks || 0} Tarefas
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-xs font-medium text-zinc-300 bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700">
+                                                {project._count?.tasks || 0} Tarefas
+                                            </div>
+                                            {project.url && (
+                                                <a
+                                                    href={project.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1.5 rounded-lg transition-colors"
+                                                    title={project.url}
+                                                >
+                                                    <ExternalLink size={12} />
+                                                    Site
+                                                </a>
+                                            )}
                                         </div>
                                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button 
@@ -219,6 +235,16 @@ export default function ProjetosPage() {
                                         onChange={e => setFormData({ ...formData, description: e.target.value })}
                                         className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm resize-none h-24"
                                         placeholder="Detalhes ou briefing do projeto..."
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">URL DO SITE (Opcional)</label>
+                                    <input
+                                        type="url"
+                                        value={formData.url}
+                                        onChange={e => setFormData({ ...formData, url: e.target.value })}
+                                        className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
+                                        placeholder="https://exemplo.com"
                                     />
                                 </div>
                                 <div className="space-y-2">

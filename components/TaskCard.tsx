@@ -100,10 +100,24 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
 
                     {/* Project Badge */}
                     {task.project && (
-                        <div className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 max-w-[80px] truncate shrink-0" title={task.project.name}>
-                            <Briefcase size={10} className="shrink-0" />
-                            <span className="truncate">{task.project.name}</span>
-                        </div>
+                        task.project.url ? (
+                            <a
+                                href={task.project.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 max-w-[80px] truncate shrink-0 hover:bg-purple-500/20 transition-colors"
+                                title={task.project.url}
+                            >
+                                <Briefcase size={10} className="shrink-0" />
+                                <span className="truncate">{task.project.name}</span>
+                            </a>
+                        ) : (
+                            <div className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 max-w-[80px] truncate shrink-0" title={task.project.name}>
+                                <Briefcase size={10} className="shrink-0" />
+                                <span className="truncate">{task.project.name}</span>
+                            </div>
+                        )
                     )}
 
                     {/* Time Tag */}

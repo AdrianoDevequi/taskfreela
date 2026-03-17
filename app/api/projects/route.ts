@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { name, description, status } = body;
+        const { name, description, status, url } = body;
 
         // name is required
         if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -61,6 +61,7 @@ export async function POST(req: Request) {
                 name,
                 description,
                 status: status || "ACTIVE",
+                url: url || null,
                 workspaceId,
             },
         });
@@ -86,7 +87,7 @@ export async function PUT(req: Request) {
         }
 
         const body = await req.json();
-        const { id, name, description, status } = body;
+        const { id, name, description, status, url } = body;
 
         // Ensure project belongs to same workspace
         const existing = await prisma.project.findUnique({ where: { id: String(id) } });
@@ -100,6 +101,7 @@ export async function PUT(req: Request) {
                 ...(name !== undefined && { name }),
                 ...(description !== undefined && { description }),
                 ...(status !== undefined && { status }),
+                ...(url !== undefined && { url: url || null }),
             },
         });
 
