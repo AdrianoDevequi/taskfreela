@@ -504,6 +504,26 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                                     <span className="font-medium text-foreground">{estimatedTime}</span>
                                 </div>
                             )}
+
+                            {taskToEdit?.project && (
+                                taskToEdit.project.url ? (
+                                    <a
+                                        href={taskToEdit.project.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-colors"
+                                        title={taskToEdit.project.url}
+                                    >
+                                        <Briefcase size={16} />
+                                        <span className="font-medium">{taskToEdit.project.name}</span>
+                                    </a>
+                                ) : (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-400">
+                                        <Briefcase size={16} />
+                                        <span className="font-medium">{taskToEdit.project.name}</span>
+                                    </div>
+                                )
+                            )}
                         </div>
 
                         {/* Description - Highlighted & Readable */}
