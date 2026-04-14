@@ -488,7 +488,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                                 return (
                                     <>
                                         <button
-                                            onClick={() => { onStatusChange(taskToEdit.id, 'DONE'); handleClose(); }}
+                                            onClick={() => { onStatusChange(taskToEdit.id, 'APPROVED'); handleClose(); }}
                                             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-green-500/10 text-green-500 hover:bg-green-500/20 transition-colors"
                                         >
                                             <ThumbsUp size={14} /> Aprovar

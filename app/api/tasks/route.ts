@@ -181,7 +181,7 @@ export function PUT(req: Request) {
         }
 
         // Approve/Reject: only the creator can do it
-        if (existing.status === 'PENDING_APPROVAL' && (status === 'DONE' || status === 'TODO') && existing.userId !== session.user.id) {
+        if (existing.status === 'PENDING_APPROVAL' && (status === 'DONE' || status === 'APPROVED' || status === 'TODO') && existing.userId !== session.user.id) {
             // Allow managers and the creator
             if (role !== 'MANAGER' && role !== 'ADMIN') {
                 return NextResponse.json({ error: "Only the task creator can approve or reject" }, { status: 403 });

@@ -198,7 +198,8 @@ export default function Home() {
                                (assignedToId && userId && assignedToId === userId) ||
                                (assignedToEmail && userEmail && assignedToEmail === userEmail);
                 const isPendingMyApproval = t.status === 'PENDING_APPROVAL' && userId && createdById === userId;
-                return isMine || isPendingMyApproval;
+                const isApprovedByMe = t.status === 'APPROVED' && userId && createdById === userId;
+                return isMine || isPendingMyApproval || isApprovedByMe;
               })
             : tasks
         }
