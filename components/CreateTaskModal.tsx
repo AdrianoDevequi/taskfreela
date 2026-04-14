@@ -216,7 +216,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
     };
 
     const handleReject = async () => {
-        if (!rejectionReason.trim() || !taskToEdit?.id || !onStatusChange) return;
+        if (rejectionReason.trim().length < 20 || !taskToEdit?.id || !onStatusChange) return;
         setIsSubmittingComment(true);
         try {
             // Post rejection reason as a comment first
@@ -610,14 +610,28 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                             </h3>
                             <p className="text-xs text-muted-foreground">Obrigatório — será adicionado como comentário na tarefa.</p>
                         </div>
-                        <textarea
-                            value={rejectionReason}
-                            onChange={(e) => setRejectionReason(e.target.value)}
-                            placeholder="Descreva o motivo da rejeição..."
-                            rows={4}
-                            autoFocus
-                            className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-destructive/50 placeholder:text-muted-foreground/50 resize-none"
-                        />
+                        <div className="relative">
+                            <textarea
+                                value={rejectionReason}
+                                onChange={(e) => setRejectionReason(e.target.value)}
+                                placeholder="Descreva o motivo da rejeição com detalhes suficientes..."
+                                rows={4}
+                                autoFocus
+                                className={`w-full bg-muted/50 border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 placeholder:text-muted-foreground/50 resize-none transition-colors ${
+                                    rejectionReason.length > 0 && rejectionReason.trim().length < 20
+                                        ? 'border-destructive/60 focus:ring-destructive/50'
+                                        : 'border-input focus:ring-destructive/50'
+                                }`}
+                            />
+                            <span className={`absolute bottom-2 right-3 text-[10px] font-mono ${
+                                rejectionReason.trim().length < 20 ? 'text-destructive/70' : 'text-muted-foreground'
+                            }`}>
+                                {rejectionReason.trim().length}/20 mín.
+                            </span>
+                        </div>
+                        {rejectionReason.length > 0 && rejectionReason.trim().length < 20 && (
+                            <p className="text-xs text-destructive -mt-2">Mínimo de 20 caracteres.</p>
+                        )}
                         <div className="flex gap-2 justify-end">
                             <button
                                 type="button"
@@ -629,7 +643,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                             <button
                                 type="button"
                                 onClick={handleReject}
-                                disabled={!rejectionReason.trim() || isSubmittingComment}
+                                disabled={rejectionReason.trim().length < 20 || isSubmittingComment}
                                 className="flex items-center gap-2 px-4 py-2 bg-destructive text-white rounded-xl text-sm font-bold hover:bg-destructive/90 disabled:opacity-50 transition-colors"
                             >
                                 {isSubmittingComment ? <Loader2 size={14} className="animate-spin" /> : <ThumbsDown size={14} />}
