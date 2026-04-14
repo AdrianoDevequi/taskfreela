@@ -76,6 +76,9 @@ export async function GET() {
                 assignedTo: {
                     select: { id: true, name: true, email: true, image: true },
                 },
+                user: {
+                    select: { id: true, name: true },
+                },
                 project: {
                     select: { id: true, name: true },
                 }
@@ -83,7 +86,9 @@ export async function GET() {
         });
 
         console.log("GET /api/tasks -> Found tasks count:", tasks.length);
-        return NextResponse.json(tasks);
+        // Remap `user` to `createdBy` so the frontend can use it cleanly
+        const mapped = tasks.map((t: any) => ({ ...t, createdBy: t.user, user: undefined }));
+        return NextResponse.json(mapped);
     } catch (error) {
         console.error("GET /api/tasks Error:", error);
         return NextResponse.json({ error: "Failed to fetch tasks" }, { status: 500 });
@@ -165,9 +170,22 @@ export async function PUT(req: Request) {
 
         const isStatusOnlyUpdate = status !== undefined && !title && !description && !dueDate;
 
-        // Employees can only update status (move card on Kanban)
+        // Employees can only update status (move card on Kanban or request approval)
         if (!isStatusOnlyUpdate && role !== "MANAGER" && role !== "ADMIN") {
             return NextResponse.json({ error: "Forbidden: Only managers can edit task details" }, { status: 403 });
+        }
+
+        // PENDING_APPROVAL: only the assignee can request approval
+        if (status === 'PENDING_APPROVAL' && existing.assignedToId !== session.user.id) {
+            return NextResponse.json({ error: "Only the assignee can request approval" }, { status: 403 });
+        }
+
+        // Approve/Reject: only the creator can do it
+        if (existing.status === 'PENDING_APPROVAL' && (status === 'DONE' || status === 'TODO') && existing.userId !== session.user.id) {
+            // Allow managers and the creator
+            if (role !== 'MANAGER' && role !== 'ADMIN') {
+                return NextResponse.json({ error: "Only the task creator can approve or reject" }, { status: 403 });
+            }
         }
 
         const task = await prisma.task.update({

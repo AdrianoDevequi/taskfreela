@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Task } from "@/types";
-import { Calendar, AlertCircle, Pencil, Trash2, ChevronDown, ChevronUp, Clock, Briefcase, Repeat } from "lucide-react";
+import { Calendar, AlertCircle, Pencil, Trash2, ChevronDown, ChevronUp, Clock, Briefcase, Repeat, Hourglass } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSimpleMode } from "@/app/context/SimpleModeContext";
@@ -150,6 +150,14 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
                                     task.recurrenceDays.split(',').map(d => ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][parseInt(d)]).join(', ')
                                 )}
                             </span>
+                        </div>
+                    )}
+
+                    {/* Pending Approval Badge */}
+                    {task.status === 'PENDING_APPROVAL' && (
+                        <div className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 shrink-0" title="Aguardando aprovação">
+                            <Hourglass size={10} className="shrink-0" />
+                            <span className="hidden sm:inline-block">Aprovação</span>
                         </div>
                     )}
 

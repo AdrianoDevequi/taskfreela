@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSimpleMode } from "@/app/context/SimpleModeContext";
-import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users, MessageSquare, Send, Paperclip, Repeat, Info, CheckCircle2, RotateCcw, Plus } from "lucide-react";
+import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users, MessageSquare, Send, Paperclip, Repeat, Info, CheckCircle2, RotateCcw, Plus, SendHorizonal, ThumbsUp, ThumbsDown, Hourglass } from "lucide-react";
 import { Task } from "@/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -13,12 +13,14 @@ interface CreateTaskModalProps {
     onClose: () => void;
     onSave: (task: any) => void;
     onQuickAction?: (task: Task) => void;
+    onStatusChange?: (taskId: number, newStatus: string) => void;
     taskToEdit?: Task | null;
     startWithMagic?: boolean;
     startInEditMode?: boolean;
+    currentUserId?: string;
 }
 
-export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction, taskToEdit, startWithMagic = false, startInEditMode = false }: CreateTaskModalProps) {
+export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction, onStatusChange, taskToEdit, startWithMagic = false, startInEditMode = false, currentUserId }: CreateTaskModalProps) {
     const { data: session } = useSession();
     const { isSimpleMode } = useSimpleMode();
     const [isEditing, setIsEditing] = useState(false);
@@ -443,23 +445,73 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                         )}
                     </h2>
                     <div className="flex items-center gap-2">
-                        {!isEditing && !isMagicMode && taskToEdit && onQuickAction && (
-                            taskToEdit.status === 'DONE' ? (
-                                <button
-                                    onClick={() => { onQuickAction(taskToEdit); handleClose(); }}
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                                >
-                                    <RotateCcw size={14} /> Reativar
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={() => { onQuickAction(taskToEdit); handleClose(); }}
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-green-500/10 text-green-500 hover:bg-green-500/20 transition-colors"
-                                >
-                                    <CheckCircle2 size={14} /> Concluir
-                                </button>
-                            )
-                        )}
+                        {!isEditing && !isMagicMode && taskToEdit && (() => {
+                            const uid = currentUserId;
+                            const isAssignee = taskToEdit.assignedTo?.id === uid;
+                            const isCreator = taskToEdit.createdBy?.id === uid;
+                            const status = taskToEdit.status;
+
+                            // Pending approval: creator sees Approve / Reject
+                            if (status === 'PENDING_APPROVAL' && isCreator && onStatusChange) {
+                                return (
+                                    <>
+                                        <button
+                                            onClick={() => { onStatusChange(taskToEdit.id, 'DONE'); handleClose(); }}
+                                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-green-500/10 text-green-500 hover:bg-green-500/20 transition-colors"
+                                        >
+                                            <ThumbsUp size={14} /> Aprovar
+                                        </button>
+                                        <button
+                                            onClick={() => { onStatusChange(taskToEdit.id, 'TODO'); handleClose(); }}
+                                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                                        >
+                                            <ThumbsDown size={14} /> Rejeitar
+                                        </button>
+                                    </>
+                                );
+                            }
+
+                            // Pending approval: assignee sees "Aguardando" badge
+                            if (status === 'PENDING_APPROVAL' && isAssignee) {
+                                return (
+                                    <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+                                        <Hourglass size={14} /> Aguardando aprovação
+                                    </span>
+                                );
+                            }
+
+                            // Assignee (≠ creator) can request approval
+                            if (isAssignee && !isCreator && status !== 'DONE' && status !== 'PENDING_APPROVAL' && onStatusChange) {
+                                return (
+                                    <button
+                                        onClick={() => { onStatusChange(taskToEdit.id, 'PENDING_APPROVAL'); handleClose(); }}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 transition-colors"
+                                    >
+                                        <SendHorizonal size={14} /> Solicitar aprovação
+                                    </button>
+                                );
+                            }
+
+                            // Regular complete/reactivate
+                            if (onQuickAction) {
+                                return status === 'DONE' ? (
+                                    <button
+                                        onClick={() => { onQuickAction(taskToEdit); handleClose(); }}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                                    >
+                                        <RotateCcw size={14} /> Reativar
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => { onQuickAction(taskToEdit); handleClose(); }}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-green-500/10 text-green-500 hover:bg-green-500/20 transition-colors"
+                                    >
+                                        <CheckCircle2 size={14} /> Concluir
+                                    </button>
+                                );
+                            }
+                            return null;
+                        })()}
                         {!isEditing && !isMagicMode && (
                             <button
                                 onClick={() => setIsEditing(true)}

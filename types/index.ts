@@ -1,4 +1,4 @@
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'PENDING_APPROVAL';
 
 export interface Task {
     id: number;
@@ -15,4 +15,5 @@ export interface Task {
     projectId?: string | null;
     project?: { id: string, name: string, url?: string | null } | null;
     assignedTo?: { id: string, name: string, image: string | null } | null;
+    createdBy?: { id: string, name: string } | null;
 }

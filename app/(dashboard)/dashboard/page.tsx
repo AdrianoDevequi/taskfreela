@@ -115,6 +115,10 @@ export default function Home() {
     handleTaskMove(task.id, newStatus);
   };
 
+  const handleStatusChange = (taskId: number, newStatus: string) => {
+    handleTaskMove(taskId, newStatus as any);
+  };
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
@@ -226,9 +230,11 @@ export default function Home() {
         onClose={() => { setIsModalOpen(false); setEditingTask(null); }}
         onSave={handleSaveTask}
         onQuickAction={handleQuickAction}
+        onStatusChange={handleStatusChange}
         taskToEdit={editingTask}
         startWithMagic={startWithMagic}
         startInEditMode={startInEditMode}
+        currentUserId={activeUser?.id}
       />
     </div>
   );
