@@ -99,15 +99,19 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
                     </div>
 
                     {/* Project Badge */}
-                    {task.project && (
-                        task.project.url ? (
+                    {task.project && (() => {
+                        const projectUrl = task.project.url ||
+                            (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(task.project.name.trim())
+                                ? `https://${task.project.name.trim()}`
+                                : null);
+                        return projectUrl ? (
                             <a
-                                href={task.project.url}
+                                href={projectUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={e => e.stopPropagation()}
                                 className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 max-w-[80px] truncate shrink-0 hover:bg-purple-500/20 transition-colors"
-                                title={task.project.url}
+                                title={projectUrl}
                             >
                                 <Briefcase size={10} className="shrink-0" />
                                 <span className="truncate">{task.project.name}</span>
@@ -117,8 +121,8 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
                                 <Briefcase size={10} className="shrink-0" />
                                 <span className="truncate">{task.project.name}</span>
                             </div>
-                        )
-                    )}
+                        );
+                    })()}
 
                     {/* Time Tag */}
                     {task.estimatedTime && (

@@ -541,14 +541,18 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                                 </div>
                             )}
 
-                            {taskToEdit?.project && (
-                                taskToEdit.project.url ? (
+                            {taskToEdit?.project && (() => {
+                                const projectUrl = taskToEdit.project.url ||
+                                    (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(taskToEdit.project.name.trim())
+                                        ? `https://${taskToEdit.project.name.trim()}`
+                                        : null);
+                                return projectUrl ? (
                                     <a
-                                        href={taskToEdit.project.url}
+                                        href={projectUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-colors"
-                                        title={taskToEdit.project.url}
+                                        title={projectUrl}
                                     >
                                         <Briefcase size={16} />
                                         <span className="font-medium">{taskToEdit.project.name}</span>
@@ -558,8 +562,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                                         <Briefcase size={16} />
                                         <span className="font-medium">{taskToEdit.project.name}</span>
                                     </div>
-                                )
-                            )}
+                                );
+                            })()}
                         </div>
 
                         {/* Description - Highlighted & Readable */}
