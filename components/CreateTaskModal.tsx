@@ -60,14 +60,18 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
     useEffect(() => {
         // Only fetch team members once session is loaded so we can filter current user
         if (!session?.user) return;
-        const currentUserEmail = session.user.email;
-        const currentUserId = (session.user as any)?.id;
+        const currentUserEmail = session.user.email || null;
+        const currentUserId = (session.user as any)?.id || null;
 
         fetch("/api/team")
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) {
-                    const filtered = data.filter((member: any) => member.id !== currentUserId && member.email !== currentUserEmail);
+                    const filtered = data.filter((member: any) => {
+                        const matchesId = currentUserId && member.id === currentUserId;
+                        const matchesEmail = currentUserEmail && member.email === currentUserEmail;
+                        return !matchesId && !matchesEmail;
+                    });
                     setTeamMembers(filtered);
                 }
             })
