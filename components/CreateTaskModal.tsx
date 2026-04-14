@@ -55,16 +55,18 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
         fetch("/api/projects").then(res => res.json()).then(data => {
             if (Array.isArray(data)) setAvailableProjects(data);
         }).catch(err => console.error(err));
+    }, []);
 
-        // Fetch team members to populate the assignee dropdown
+    useEffect(() => {
+        // Only fetch team members once session is loaded so we can filter current user
+        if (!session?.user) return;
+        const currentUserEmail = session.user.email;
+        const currentUserId = (session.user as any)?.id;
+
         fetch("/api/team")
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) {
-                    // Filter out the current user to avoid duplicate (since "Atribuir a mim" is always present as an option)
-                    // We check both ID and Email to be safe depending on how next-auth session is populated
-                    const currentUserEmail = session?.user?.email;
-                    const currentUserId = (session?.user as any)?.id;
                     const filtered = data.filter((member: any) => member.id !== currentUserId && member.email !== currentUserEmail);
                     setTeamMembers(filtered);
                 }
@@ -884,6 +886,16 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                                 <div className="space-y-1">
                                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                                         <Briefcase size={14} /> Projeto
+                                        {!isCreatingProject && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsCreatingProject(true)}
+                                                className="ml-auto text-primary hover:text-primary/80 transition-colors"
+                                                title="Criar novo projeto"
+                                            >
+                                                <Plus size={14} />
+                                            </button>
+                                        )}
                                     </label>
                                     {isCreatingProject ? (
                                         <div className="flex gap-1.5">
@@ -893,37 +905,27 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                                                 onChange={(e) => setNewProjectName(e.target.value)}
                                                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); createProjectInline(); } if (e.key === 'Escape') setIsCreatingProject(false); }}
                                                 placeholder="Nome do projeto"
-                                                className="flex-1 bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 transition-all"
+                                                className="flex-1 bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 transition-all min-w-0"
                                                 autoFocus
                                             />
-                                            <button type="button" onClick={createProjectInline} className="px-2 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors">
-                                                <Plus size={14} />
+                                            <button type="button" onClick={createProjectInline} className="shrink-0 px-2 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors">
+                                                OK
                                             </button>
-                                            <button type="button" onClick={() => setIsCreatingProject(false)} className="px-2 py-2 text-muted-foreground hover:text-foreground rounded-xl text-xs transition-colors">
+                                            <button type="button" onClick={() => setIsCreatingProject(false)} className="shrink-0 px-2 py-2 text-muted-foreground hover:text-foreground rounded-xl text-xs transition-colors">
                                                 <X size={14} />
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="flex gap-1.5">
-                                            <select
-                                                value={projectId}
-                                                onChange={(e) => setProjectId(e.target.value)}
-                                                className="flex-1 bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
-                                            >
-                                                <option value="" className="text-black dark:text-white bg-white dark:bg-slate-950">Nenhum projeto</option>
-                                                {availableProjects.map(p => (
-                                                    <option key={p.id} value={p.id} className="text-black dark:text-white bg-white dark:bg-slate-950">{p.name}</option>
-                                                ))}
-                                            </select>
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsCreatingProject(true)}
-                                                className="px-2 py-2 bg-muted/50 border border-input rounded-xl text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
-                                                title="Criar novo projeto"
-                                            >
-                                                <Plus size={14} />
-                                            </button>
-                                        </div>
+                                        <select
+                                            value={projectId}
+                                            onChange={(e) => setProjectId(e.target.value)}
+                                            className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
+                                        >
+                                            <option value="" className="text-black dark:text-white bg-white dark:bg-slate-950">Nenhum projeto</option>
+                                            {availableProjects.map(p => (
+                                                <option key={p.id} value={p.id} className="text-black dark:text-white bg-white dark:bg-slate-950">{p.name}</option>
+                                            ))}
+                                        </select>
                                     )}
                                 </div>
                                 <div className="space-y-1">
