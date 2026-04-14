@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Task } from "@/types";
-import { Calendar, AlertCircle, Pencil, Trash2, ChevronDown, ChevronUp, Clock, Briefcase, Repeat, Hourglass } from "lucide-react";
+import { Calendar, AlertCircle, Pencil, Trash2, ChevronDown, ChevronUp, Clock, Briefcase, Repeat, Hourglass, BadgeCheck } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSimpleMode } from "@/app/context/SimpleModeContext";
@@ -15,16 +15,19 @@ interface TaskCardProps {
 export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: TaskCardProps) {
     const { isSimpleMode } = useSimpleMode();
     const dueDate = new Date(task.dueDate);
-    const isOverdue = isPast(dueDate) && !isToday(dueDate) && task.status !== 'DONE';
+    const isApproved = task.status === 'APPROVED';
+    const isOverdue = isPast(dueDate) && !isToday(dueDate) && task.status !== 'DONE' && !isApproved;
 
     return (
         <div
             onClick={() => onEdit?.(task)}
             className={`
         group relative p-4 rounded-xl bg-card border transition-all duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer h-full flex flex-col
-        ${isOverdue
-                    ? "border-destructive/50 hover:border-destructive shadow-[0_0_0_1px_rgba(239,68,68,0.2)]"
-                    : "border-border hover:border-primary/50"
+        ${isApproved
+                    ? "border-green-500/50 hover:border-green-500 shadow-[0_0_0_1px_rgba(34,197,94,0.15)]"
+                    : isOverdue
+                        ? "border-destructive/50 hover:border-destructive shadow-[0_0_0_1px_rgba(239,68,68,0.2)]"
+                        : "border-border hover:border-primary/50"
                 }
       `}
         >
@@ -158,6 +161,14 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
                         <div className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 shrink-0" title="Aguardando aprovação">
                             <Hourglass size={10} className="shrink-0" />
                             <span className="hidden sm:inline-block">Aprovação</span>
+                        </div>
+                    )}
+
+                    {/* Approved Badge */}
+                    {isApproved && (
+                        <div className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-green-500/10 text-green-500 border border-green-500/20 shrink-0" title="Aprovada">
+                            <BadgeCheck size={10} className="shrink-0" />
+                            <span className="hidden sm:inline-block">Aprovada</span>
                         </div>
                     )}
 

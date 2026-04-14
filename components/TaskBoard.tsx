@@ -20,10 +20,7 @@ export default function TaskBoard({ tasks, onTaskMove, onQuickAction, onEdit, on
     const todoTasks = safeTasks.filter(t => t.status === 'TODO' || t.status === 'PENDING_APPROVAL');
     const inProgressTasks = safeTasks.filter(t => t.status === 'IN_PROGRESS');
     const doneTasks = safeTasks
-        .filter(t => t.status === 'DONE')
-        .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
-    const approvedTasks = safeTasks
-        .filter(t => t.status === 'APPROVED')
+        .filter(t => t.status === 'DONE' || t.status === 'APPROVED')
         .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
 
     // Toggle state for secondary columns
@@ -107,10 +104,7 @@ export default function TaskBoard({ tasks, onTaskMove, onQuickAction, onEdit, on
                 {/* BOTTOM SECTION: Vertical stack (Concluído → Em Progresso → Aprovadas) */}
                 {showSecondary && (
                     <div className="flex-1 flex flex-col gap-6 animate-in slide-in-from-bottom-5 fade-in duration-300">
-                        {/* Aprovadas */}
-                        <Column title="Aprovadas" status="APPROVED" tasks={approvedTasks} color="#a855f7" onQuickAction={onQuickAction} onEdit={onEdit} onDelete={onDelete} />
-
-                        {/* Concluído */}
+                        {/* Concluído (includes APPROVED) */}
                         <Column title="Concluído" status="DONE" tasks={doneTasks} color="#22c55e" onQuickAction={onQuickAction} onEdit={onEdit} onDelete={onDelete} />
 
                         {/* Em Progresso */}
