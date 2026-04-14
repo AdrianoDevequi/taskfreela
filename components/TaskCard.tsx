@@ -8,7 +8,7 @@ import { useSimpleMode } from "@/app/context/SimpleModeContext";
 interface TaskCardProps {
     task: Task;
     onQuickAction?: (task: Task) => void;
-    onEdit?: (task: Task) => void;
+    onEdit?: (task: Task, editMode?: boolean) => void;
     onDelete?: (taskId: number) => void;
 }
 
@@ -169,7 +169,7 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
                     <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-auto">
                         {/* Edit */}
                         <button
-                            onClick={(e) => { e.stopPropagation(); onEdit?.(task); }}
+                            onClick={(e) => { e.stopPropagation(); onEdit?.(task, true); }}
                             className="p-1.5 hover:bg-primary/10 text-muted-foreground hover:text-primary rounded-md transition-colors"
                             title="Editar"
                         >

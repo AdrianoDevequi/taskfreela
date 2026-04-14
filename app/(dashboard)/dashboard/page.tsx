@@ -20,6 +20,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [startWithMagic, setStartWithMagic] = useState(false);
+  const [startInEditMode, setStartInEditMode] = useState(false);
 
   // Fallback for NextAuth Client Session Bug
   const [activeUser, setActiveUser] = useState<{ id?: string; email?: string } | null>(null);
@@ -76,9 +77,10 @@ export default function Home() {
     }
   };
 
-  const handleEditTask = (task: Task) => {
+  const handleEditTask = (task: Task, editMode = false) => {
     setEditingTask(task);
     setStartWithMagic(false);
+    setStartInEditMode(editMode);
     setIsModalOpen(true);
   };
 
@@ -223,8 +225,10 @@ export default function Home() {
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setEditingTask(null); }}
         onSave={handleSaveTask}
+        onQuickAction={handleQuickAction}
         taskToEdit={editingTask}
         startWithMagic={startWithMagic}
+        startInEditMode={startInEditMode}
       />
     </div>
   );

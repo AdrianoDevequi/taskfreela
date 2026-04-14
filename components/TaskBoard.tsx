@@ -10,7 +10,7 @@ interface TaskBoardProps {
     tasks: Task[];
     onTaskMove: (taskId: number, newStatus: TaskStatus) => void;
     onQuickAction: (task: Task) => void;
-    onEdit: (task: Task) => void;
+    onEdit: (task: Task, editMode?: boolean) => void;
     onDelete: (taskId: number) => void;
 }
 
@@ -144,7 +144,7 @@ function Column({ title, status, tasks, color, onQuickAction, onEdit, onDelete }
                                         {...provided.draggableProps}
                                         {...provided.dragHandleProps}
                                     >
-                                        <TaskCard task={task} onQuickAction={onQuickAction} />
+                                        <TaskCard task={task} onQuickAction={onQuickAction} onEdit={onEdit} onDelete={onDelete} />
                                     </div>
                                 )}
                             </Draggable>

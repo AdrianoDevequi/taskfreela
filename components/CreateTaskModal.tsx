@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSimpleMode } from "@/app/context/SimpleModeContext";
-import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users, MessageSquare, Send, Paperclip, Repeat, Info } from "lucide-react";
+import { X, Calendar, AlignLeft, Type, Clock, Loader2, Sparkles, Pencil, Keyboard, Mic, Square, Briefcase, Users, MessageSquare, Send, Paperclip, Repeat, Info, CheckCircle2, RotateCcw, Plus } from "lucide-react";
 import { Task } from "@/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -12,11 +12,13 @@ interface CreateTaskModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (task: any) => void;
+    onQuickAction?: (task: Task) => void;
     taskToEdit?: Task | null;
     startWithMagic?: boolean;
+    startInEditMode?: boolean;
 }
 
-export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, startWithMagic = false }: CreateTaskModalProps) {
+export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction, taskToEdit, startWithMagic = false, startInEditMode = false }: CreateTaskModalProps) {
     const { data: session } = useSession();
     const { isSimpleMode } = useSimpleMode();
     const [isEditing, setIsEditing] = useState(false);
@@ -24,6 +26,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
     const [isMagicMode, setIsMagicMode] = useState(false);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+    const [isCreatingProject, setIsCreatingProject] = useState(false);
+    const [newProjectName, setNewProjectName] = useState("");
 
     // Form States
     const [title, setTitle] = useState("");
@@ -73,8 +77,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
     useEffect(() => {
         if (isOpen) {
             if (taskToEdit) {
-                // Open in View Mode by default
-                setIsEditing(false);
+                // Open in Edit Mode if requested, otherwise View Mode
+                setIsEditing(startInEditMode);
                 setIsMagicMode(false);
                 setTitle(taskToEdit.title);
                 setDescription(taskToEdit.description || "");
@@ -111,7 +115,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                 }
             }
         }
-    }, [isOpen, taskToEdit, startWithMagic]);
+    }, [isOpen, taskToEdit, startWithMagic, startInEditMode]);
 
     // Handle AI File Processing
     const processFile = async (file: File) => {
@@ -378,6 +382,28 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
         onClose();
     };
 
+    const createProjectInline = async () => {
+        if (!newProjectName.trim()) return;
+        try {
+            const res = await fetch("/api/projects", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: newProjectName.trim() }),
+            });
+            const data = await res.json();
+            if (res.ok && data.id) {
+                setAvailableProjects(prev => [...prev, { id: data.id, name: data.name }]);
+                setProjectId(data.id);
+                setNewProjectName("");
+                setIsCreatingProject(false);
+            } else {
+                alert(data.error || "Erro ao criar projeto");
+            }
+        } catch {
+            alert("Falha ao criar projeto");
+        }
+    };
+
     const handleAiData = (data: any) => {
         if (data.title) setTitle(data.title);
         if (data.description) setDescription(data.description);
@@ -424,6 +450,23 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                         )}
                     </h2>
                     <div className="flex items-center gap-2">
+                        {!isEditing && !isMagicMode && taskToEdit && onQuickAction && (
+                            taskToEdit.status === 'DONE' ? (
+                                <button
+                                    onClick={() => { onQuickAction(taskToEdit); handleClose(); }}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                                >
+                                    <RotateCcw size={14} /> Reativar
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => { onQuickAction(taskToEdit); handleClose(); }}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-green-500/10 text-green-500 hover:bg-green-500/20 transition-colors"
+                                >
+                                    <CheckCircle2 size={14} /> Concluir
+                                </button>
+                            )
+                        )}
                         {!isEditing && !isMagicMode && (
                             <button
                                 onClick={() => setIsEditing(true)}
@@ -842,16 +885,46 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, taskToEdit, s
                                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                                         <Briefcase size={14} /> Projeto
                                     </label>
-                                    <select
-                                        value={projectId}
-                                        onChange={(e) => setProjectId(e.target.value)}
-                                        className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
-                                    >
-                                        <option value="" className="text-black dark:text-white bg-white dark:bg-slate-950">Nenhum projeto</option>
-                                        {availableProjects.map(p => (
-                                            <option key={p.id} value={p.id} className="text-black dark:text-white bg-white dark:bg-slate-950">{p.name}</option>
-                                        ))}
-                                    </select>
+                                    {isCreatingProject ? (
+                                        <div className="flex gap-1.5">
+                                            <input
+                                                type="text"
+                                                value={newProjectName}
+                                                onChange={(e) => setNewProjectName(e.target.value)}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); createProjectInline(); } if (e.key === 'Escape') setIsCreatingProject(false); }}
+                                                placeholder="Nome do projeto"
+                                                className="flex-1 bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 transition-all"
+                                                autoFocus
+                                            />
+                                            <button type="button" onClick={createProjectInline} className="px-2 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors">
+                                                <Plus size={14} />
+                                            </button>
+                                            <button type="button" onClick={() => setIsCreatingProject(false)} className="px-2 py-2 text-muted-foreground hover:text-foreground rounded-xl text-xs transition-colors">
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-1.5">
+                                            <select
+                                                value={projectId}
+                                                onChange={(e) => setProjectId(e.target.value)}
+                                                className="flex-1 bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-all appearance-none"
+                                            >
+                                                <option value="" className="text-black dark:text-white bg-white dark:bg-slate-950">Nenhum projeto</option>
+                                                {availableProjects.map(p => (
+                                                    <option key={p.id} value={p.id} className="text-black dark:text-white bg-white dark:bg-slate-950">{p.name}</option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsCreatingProject(true)}
+                                                className="px-2 py-2 bg-muted/50 border border-input rounded-xl text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+                                                title="Criar novo projeto"
+                                            >
+                                                <Plus size={14} />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
