@@ -2,12 +2,14 @@ import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
-// Enforce connection_limit=1 for serverless environments.
-// Each Vercel function invocation is isolated, so a pool bigger than 1 just
-// wastes connections that never get reused within the same invocation.
+// Force connection_limit=1 for serverless environments.
+// Each Vercel invocation is isolated — a larger pool only wastes connections.
+// We override whatever value is in DATABASE_URL to ensure it's always 1.
 function buildDatabaseUrl() {
-    const url = process.env.DATABASE_URL || "";
-    if (!url || url.includes("connection_limit")) return url;
+    let url = process.env.DATABASE_URL || "";
+    if (!url) return url;
+    // Strip existing connection_limit and pool_timeout params, then re-add with safe values
+    url = url.replace(/[&?]connection_limit=\d+/g, "").replace(/[&?]pool_timeout=\d+/g, "");
     const separator = url.includes("?") ? "&" : "?";
     return `${url}${separator}connection_limit=1&pool_timeout=10`;
 }
