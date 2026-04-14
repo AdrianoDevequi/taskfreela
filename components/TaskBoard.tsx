@@ -107,14 +107,14 @@ export default function TaskBoard({ tasks, onTaskMove, onQuickAction, onEdit, on
                 {/* BOTTOM SECTION: Vertical stack (Concluído → Em Progresso → Aprovadas) */}
                 {showSecondary && (
                     <div className="flex-1 flex flex-col gap-6 animate-in slide-in-from-bottom-5 fade-in duration-300">
+                        {/* Aprovadas */}
+                        <Column title="Aprovadas" status="APPROVED" tasks={approvedTasks} color="#a855f7" onQuickAction={onQuickAction} onEdit={onEdit} onDelete={onDelete} />
+
                         {/* Concluído */}
                         <Column title="Concluído" status="DONE" tasks={doneTasks} color="#22c55e" onQuickAction={onQuickAction} onEdit={onEdit} onDelete={onDelete} />
 
                         {/* Em Progresso */}
                         <Column title="Em Progresso" status="IN_PROGRESS" tasks={inProgressTasks} color="#3b82f6" onQuickAction={onQuickAction} onEdit={onEdit} onDelete={onDelete} />
-
-                        {/* Aprovadas */}
-                        <Column title="Aprovadas" status="APPROVED" tasks={approvedTasks} color="#a855f7" onQuickAction={onQuickAction} onEdit={onEdit} onDelete={onDelete} />
                     </div>
                 )}
 
@@ -137,12 +137,12 @@ function Column({ title, status, tasks, color, onQuickAction, onEdit, onDelete }
                 </div>
             </div>
 
-            <Droppable droppableId={status}>
+            <Droppable droppableId={status} direction="horizontal">
                 {(provided) => (
                     <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className="flex-1 p-3 space-y-3 overflow-y-auto"
+                        className="p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 min-h-[80px]"
                     >
                         {tasks.map((task, index) => (
                             <Draggable key={task.id} draggableId={String(task.id)} index={index}>
