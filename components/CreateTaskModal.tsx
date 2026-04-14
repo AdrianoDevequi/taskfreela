@@ -49,6 +49,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
 
     // Comments State
     const [comments, setComments] = useState<any[]>([]);
+
+    // Rejection State
+    const [isRejecting, setIsRejecting] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState("");
     const [newComment, setNewComment] = useState("");
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
@@ -206,6 +210,32 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
         } catch (error) {
             console.error(error);
             alert("Erro ao enviar comentário");
+        } finally {
+            setIsSubmittingComment(false);
+        }
+    };
+
+    const handleReject = async () => {
+        if (!rejectionReason.trim() || !taskToEdit?.id || !onStatusChange) return;
+        setIsSubmittingComment(true);
+        try {
+            // Post rejection reason as a comment first
+            await fetch("/api/tasks/comments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    taskId: taskToEdit.id,
+                    content: `❌ Tarefa rejeitada: ${rejectionReason.trim()}`
+                })
+            });
+            // Then change status back to TODO
+            onStatusChange(taskToEdit.id, 'TODO');
+            setIsRejecting(false);
+            setRejectionReason("");
+            handleClose();
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao rejeitar tarefa");
         } finally {
             setIsSubmittingComment(false);
         }
@@ -372,6 +402,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
         setAssignedToId("");
         setIsEditing(false);
         setIsMagicMode(false);
+        setIsRejecting(false);
+        setRejectionReason("");
         setComments([]);
         setNewComment("");
         onClose();
@@ -462,7 +494,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                                             <ThumbsUp size={14} /> Aprovar
                                         </button>
                                         <button
-                                            onClick={() => { onStatusChange(taskToEdit.id, 'TODO'); handleClose(); }}
+                                            onClick={() => setIsRejecting(true)}
                                             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
                                         >
                                             <ThumbsDown size={14} /> Rejeitar
@@ -569,8 +601,46 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                     </div>
                 )}
 
+                {/* Rejection Reason Overlay */}
+                {isRejecting && (
+                    <div className="p-6 flex flex-col gap-4">
+                        <div>
+                            <h3 className="font-bold text-base mb-1 flex items-center gap-2 text-destructive">
+                                <ThumbsDown size={16} /> Motivo da rejeição
+                            </h3>
+                            <p className="text-xs text-muted-foreground">Obrigatório — será adicionado como comentário na tarefa.</p>
+                        </div>
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            placeholder="Descreva o motivo da rejeição..."
+                            rows={4}
+                            autoFocus
+                            className="w-full bg-muted/50 border border-input rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-destructive/50 placeholder:text-muted-foreground/50 resize-none"
+                        />
+                        <div className="flex gap-2 justify-end">
+                            <button
+                                type="button"
+                                onClick={() => { setIsRejecting(false); setRejectionReason(""); }}
+                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleReject}
+                                disabled={!rejectionReason.trim() || isSubmittingComment}
+                                className="flex items-center gap-2 px-4 py-2 bg-destructive text-white rounded-xl text-sm font-bold hover:bg-destructive/90 disabled:opacity-50 transition-colors"
+                            >
+                                {isSubmittingComment ? <Loader2 size={14} className="animate-spin" /> : <ThumbsDown size={14} />}
+                                Confirmar Rejeição
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* View Mode Content */}
-                {!isEditing && !isMagicMode && (
+                {!isEditing && !isMagicMode && !isRejecting && (
                     <div className="p-8">
                         {/* Title - Large & Featured */}
                         <h1 className="text-3xl font-bold text-foreground mb-6 leading-tight">
