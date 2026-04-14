@@ -19,10 +19,10 @@ export async function GET() {
             orderBy: { createdAt: "asc" },
         });
 
-        const members = (workspaceMembers as any).map((wm: any) => ({
-            ...wm.user,
-            role: wm.role
-        }));
+        const currentUserId = session.user.id;
+        const members = (workspaceMembers as any)
+            .map((wm: any) => ({ ...wm.user, role: wm.role }))
+            .filter((m: any) => m.id !== currentUserId);
 
         return NextResponse.json(members);
     } catch (error) {
