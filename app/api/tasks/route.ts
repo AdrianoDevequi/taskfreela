@@ -47,6 +47,41 @@ async function sendTaskAssignmentNotification(taskId: number, assignedToId: stri
     }
 }
 
+async function sendTaskApprovalNotification(taskId: number) {
+    try {
+        const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+        if (!settings || !settings.instanceName) return;
+
+        const task = await (prisma.task as any).findUnique({
+            where: { id: taskId },
+            include: {
+                assignedTo: { select: { id: true, name: true, whatsapp: true, notifyNewTasks: true } },
+                project: { select: { name: true } }
+            }
+        });
+
+        if (!task || !task.assignedTo?.whatsapp || !task.assignedTo.notifyNewTasks) return;
+
+        const projectInfo = task.project ? `\n*Projeto:* ${task.project.name}` : "";
+        const message = `✅ Olá ${task.assignedTo.name}!\n\nSua tarefa foi *aprovada*! 🎉\n\n*Título:* ${task.title}${projectInfo}\n\nParabéns pelo ótimo trabalho! 🚀\n\nhttps://www.taskfreela.com.br/`;
+
+        await evolutionService.sendText(
+            settings.instanceName,
+            task.assignedTo.whatsapp,
+            message
+        );
+
+        // Web Push Notification
+        await pushService.sendToUser(task.assignedTo.id, {
+            title: "Tarefa Aprovada ✅",
+            body: `Sua tarefa foi aprovada: ${task.title}`,
+            url: `https://www.taskfreela.com.br/dashboard/?task=${task.id}`
+        });
+    } catch (error) {
+        console.error("Error sending approval notification:", error);
+    }
+}
+
 // GET: Fetch all tasks for the user's workspace
 export function GET() {
     return withDB(async () => { try {
@@ -213,6 +248,11 @@ export function PUT(req: Request) {
         if (assignedToId && assignedToId !== existing.assignedToId && assignedToId !== session.user.id) {
             // Await is required on Vercel
             await sendTaskAssignmentNotification(task.id, assignedToId);
+        }
+
+        // Notify assignee when task is approved
+        if (status === 'APPROVED' && existing.status !== 'APPROVED') {
+            await sendTaskApprovalNotification(task.id);
         }
 
         // Automatic Recurrence Logic: If marked as DONE and it's a recurring task
