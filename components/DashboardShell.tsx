@@ -11,7 +11,8 @@ export default function DashboardShell({
     children: React.ReactNode;
     user: any;
 }) {
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
     return (
         <div className="flex h-screen w-full bg-background overflow-hidden">
@@ -19,7 +20,7 @@ export default function DashboardShell({
             <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-background border-b border-border flex items-center justify-between px-4 z-40">
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={() => setIsSidebarOpen(true)}
+                        onClick={() => setIsMobileSidebarOpen(true)}
                         className="p-2 -ml-2 text-muted-foreground hover:text-foreground rounded-md"
                     >
                         <Menu size={24} />
@@ -29,23 +30,20 @@ export default function DashboardShell({
             </div>
 
             {/* Sidebar (Desktop) */}
-            <div className="hidden md:block h-full">
-                <Sidebar user={user} />
+            <div className="hidden md:block h-full shrink-0">
+                <Sidebar user={user} collapsed={isCollapsed} onToggleCollapse={() => setIsCollapsed(v => !v)} />
             </div>
 
             {/* Sidebar (Mobile Drawer) */}
-            {isSidebarOpen && (
+            {isMobileSidebarOpen && (
                 <div className="md:hidden fixed inset-0 z-50 flex">
-                    {/* Backdrop */}
                     <div
                         className="fixed inset-0 bg-black/80 backdrop-blur-sm"
-                        onClick={() => setIsSidebarOpen(false)}
+                        onClick={() => setIsMobileSidebarOpen(false)}
                     />
-
-                    {/* Drawer */}
                     <div className="relative w-64 h-full bg-card shadow-xl animate-in slide-in-from-left duration-200">
                         <button
-                            onClick={() => setIsSidebarOpen(false)}
+                            onClick={() => setIsMobileSidebarOpen(false)}
                             className="absolute top-4 right-4 p-2 text-muted-foreground hover:text-foreground"
                         >
                             <X size={20} />
@@ -53,7 +51,7 @@ export default function DashboardShell({
                         <Sidebar
                             user={user}
                             className="border-none"
-                            onLinkClick={() => setIsSidebarOpen(false)}
+                            onLinkClick={() => setIsMobileSidebarOpen(false)}
                         />
                     </div>
                 </div>
