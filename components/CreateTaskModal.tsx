@@ -411,7 +411,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
             <div
                 className={`
                     bg-card w-full rounded-2xl shadow-2xl border border-border flex flex-col animate-in fade-in zoom-in duration-200 relative overflow-y-auto max-h-[90vh]
-                    ${isEditing && !isMagicMode ? 'max-w-md' : 'max-w-5xl'} transition-all
+                    ${isEditing && !isMagicMode ? 'max-w-2xl' : 'max-w-5xl'} transition-all
                 `}
             >
                 {/* AI Loading Overlay */}
