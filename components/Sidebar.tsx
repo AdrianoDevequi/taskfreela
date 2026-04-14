@@ -44,13 +44,27 @@ export default function Sidebar({ user, className, onLinkClick, collapsed = fals
 
             {/* Collapse Toggle */}
             {onToggleCollapse && (
-                <div className="px-2 pb-2">
+                <div className={`px-2 pb-3 ${collapsed ? 'flex justify-center' : ''}`}>
                     <button
                         onClick={onToggleCollapse}
-                        className="w-full flex items-center justify-center p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                         title={collapsed ? "Expandir menu" : "Recolher menu"}
+                        className={`
+                            group relative flex items-center gap-2 rounded-xl border border-border/60
+                            bg-muted/40 hover:bg-primary/10 hover:border-primary/40
+                            text-muted-foreground hover:text-primary
+                            transition-all duration-200 shadow-sm hover:shadow-primary/10 hover:shadow-md
+                            ${collapsed ? 'w-10 h-10 justify-center' : 'w-full px-3 py-2.5'}
+                        `}
                     >
-                        {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+                        <div className="shrink-0 w-6 h-6 rounded-md bg-background border border-border/60 group-hover:border-primary/40 flex items-center justify-center transition-all duration-200">
+                            {collapsed
+                                ? <ChevronRight size={13} className="translate-x-px" />
+                                : <ChevronLeft size={13} className="-translate-x-px" />
+                            }
+                        </div>
+                        {!collapsed && (
+                            <span className="text-xs font-medium">Recolher menu</span>
+                        )}
                     </button>
                 </div>
             )}
