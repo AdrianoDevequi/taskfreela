@@ -82,6 +82,43 @@ async function sendTaskApprovalNotification(taskId: number) {
     }
 }
 
+async function sendApprovalRequestNotification(taskId: number) {
+    try {
+        const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+        if (!settings || !settings.instanceName) return;
+
+        const task = await (prisma.task as any).findUnique({
+            where: { id: taskId },
+            include: {
+                assignedTo: { select: { name: true } },
+                user: { select: { id: true, name: true, whatsapp: true, notifyNewTasks: true } },
+                project: { select: { name: true } }
+            }
+        });
+
+        if (!task || !task.user?.whatsapp || !task.user.notifyNewTasks) return;
+
+        const projectInfo = task.project ? `\n*Projeto:* ${task.project.name}` : "";
+        const assigneeName = task.assignedTo?.name || "O responsável";
+        const message = `⏳ Olá ${task.user.name}!\n\n*${assigneeName}* está solicitando sua aprovação em uma tarefa:\n\n*Título:* ${task.title}${projectInfo}\n\nAcesse o sistema para aprovar ou rejeitar. 👇\n\nhttps://www.taskfreela.com.br/dashboard/?task=${task.id}`;
+
+        await evolutionService.sendText(
+            settings.instanceName,
+            task.user.whatsapp,
+            message
+        );
+
+        // Web Push Notification
+        await pushService.sendToUser(task.user.id, {
+            title: "Tarefa aguardando aprovação ⏳",
+            body: `${assigneeName} solicitou aprovação: ${task.title}`,
+            url: `https://www.taskfreela.com.br/dashboard/?task=${task.id}`
+        });
+    } catch (error) {
+        console.error("Error sending approval request notification:", error);
+    }
+}
+
 // GET: Fetch all tasks for the user's workspace
 export function GET() {
     return withDB(async () => { try {
@@ -253,6 +290,11 @@ export function PUT(req: Request) {
         // Notify assignee when task is approved
         if (status === 'APPROVED' && existing.status !== 'APPROVED') {
             await sendTaskApprovalNotification(task.id);
+        }
+
+        // Notify creator when assignee requests approval
+        if (status === 'PENDING_APPROVAL' && existing.status !== 'PENDING_APPROVAL') {
+            await sendApprovalRequestNotification(task.id);
         }
 
         // Automatic Recurrence Logic: If marked as DONE and it's a recurring task
