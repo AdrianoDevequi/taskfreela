@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDB } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { evolutionService } from "@/services/evolution";
 import { pushService } from "@/services/push";
@@ -48,8 +48,8 @@ async function sendTaskAssignmentNotification(taskId: number, assignedToId: stri
 }
 
 // GET: Fetch all tasks for the user's workspace
-export async function GET() {
-    try {
+export function GET() {
+    return withDB(async () => { try {
         const session = await getSession();
         console.log("GET /api/tasks -> session:", JSON.stringify(session, null, 2));
 
@@ -92,12 +92,12 @@ export async function GET() {
     } catch (error) {
         console.error("GET /api/tasks Error:", error);
         return NextResponse.json({ error: "Failed to fetch tasks" }, { status: 500 });
-    }
+    } });
 }
 
 // POST: Create a new task — MANAGER only
-export async function POST(req: Request) {
-    try {
+export function POST(req: Request) {
+    return withDB(async () => { try {
         const session = await getSession();
         if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -145,14 +145,14 @@ export async function POST(req: Request) {
     } catch (error) {
         console.error("POST /api/tasks Error:", error);
         return NextResponse.json({ error: "Failed to create task" }, { status: 500 });
-    }
+    } });
 }
 
 // PUT: Update a task
 // - Status change: ALL workspace members can do this (moving Kanban cards)
 // - Full edit (title, description, date): MANAGER only
-export async function PUT(req: Request) {
-    try {
+export function PUT(req: Request) {
+    return withDB(async () => { try {
         const session = await getSession();
         if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -287,12 +287,12 @@ export async function PUT(req: Request) {
     } catch (error) {
         console.error(error);
         return NextResponse.json({ error: "Failed to update task" }, { status: 500 });
-    }
+    } });
 }
 
 // DELETE: Remove a task — MANAGER only
-export async function DELETE(req: Request) {
-    try {
+export function DELETE(req: Request) {
+    return withDB(async () => { try {
         const session = await getSession();
         if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -317,5 +317,5 @@ export async function DELETE(req: Request) {
         return NextResponse.json({ success: true });
     } catch (error) {
         return NextResponse.json({ error: "Failed to delete task" }, { status: 500 });
-    }
+    } });
 }

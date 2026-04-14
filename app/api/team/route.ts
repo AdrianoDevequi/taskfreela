@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDB } from "@/lib/prisma";
 import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
 
 // GET: List all members of the current user's workspace
-export async function GET() {
-    try {
+export function GET() {
+    return withDB(async () => { try {
         const session = await auth();
         if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -28,7 +28,7 @@ export async function GET() {
     } catch (error) {
         console.error("GET /api/team Error:", error);
         return NextResponse.json({ error: "Failed to fetch team" }, { status: 500 });
-    }
+    } });
 }
 
 // POST: Add a member to the workspace by email (MANAGER only)
