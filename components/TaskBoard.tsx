@@ -17,7 +17,7 @@ interface TaskBoardProps {
 export default function TaskBoard({ tasks, onTaskMove, onQuickAction, onEdit, onDelete }: TaskBoardProps) {
     // Separate tasks by status (ensure tasks is an array)
     const safeTasks = Array.isArray(tasks) ? tasks : [];
-    const todoTasks = safeTasks.filter(t => t.status === 'TODO');
+    const todoTasks = safeTasks.filter(t => t.status === 'TODO' || t.status === 'PENDING_APPROVAL');
     const inProgressTasks = safeTasks.filter(t => t.status === 'IN_PROGRESS');
     const doneTasks = safeTasks.filter(t => t.status === 'DONE');
 

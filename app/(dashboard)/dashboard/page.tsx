@@ -187,17 +187,19 @@ export default function Home() {
             ? tasks.filter(t => {
                 const assignedToId = t.assignedTo?.id;
                 const assignedToEmail = (t.assignedTo as any)?.email;
+                const createdById = (t as any).createdBy?.id;
 
                 // Priority 1: Use safe `activeUser` from API. Priority 2: useSession() cache.
                 const userId = activeUser?.id || (session?.user as any)?.id;
                 const userEmail = activeUser?.email || session?.user?.email;
-                
-                // Keep this true if it's assigned to the current user OR if it's unassigned
-                const isMine = (!assignedToId) || 
-                               (assignedToId && userId && assignedToId === userId) || 
+
+                // Show if assigned to me, unassigned, or PENDING_APPROVAL where I'm the creator
+                const isMine = (!assignedToId) ||
+                               (assignedToId && userId && assignedToId === userId) ||
                                (assignedToEmail && userEmail && assignedToEmail === userEmail);
-                return isMine;
-              }) 
+                const isPendingMyApproval = t.status === 'PENDING_APPROVAL' && userId && createdById === userId;
+                return isMine || isPendingMyApproval;
+              })
             : tasks
         }
         onTaskMove={handleTaskMove}
