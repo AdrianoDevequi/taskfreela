@@ -23,7 +23,7 @@ export async function checkOverdueTasks() {
                 notifyOverdueTasks: true,
                 assignedTasks: {
                     some: {
-                        status: { not: "DONE" },
+                        status: { notIn: ["DONE", "APPROVED"] },
                         dueDate: { lt: new Date(new Date().setHours(0, 0, 0, 0)) } // Overdue (before today)
                     }
                 }
@@ -31,7 +31,7 @@ export async function checkOverdueTasks() {
             include: {
                 assignedTasks: {
                     where: {
-                        status: { not: "DONE" },
+                        status: { notIn: ["DONE", "APPROVED"] },
                         dueDate: { lt: new Date(new Date().setHours(0, 0, 0, 0)) }
                     },
                     orderBy: { dueDate: "asc" },
@@ -133,7 +133,7 @@ export async function checkMandatoryTasks() {
                 assignedTasks: {
                     some: {
                         isMandatory: true,
-                        status: { not: "DONE" },
+                        status: { notIn: ["DONE", "APPROVED"] },
                         dueDate: {
                             gte: startOfDay,
                             lte: endOfDay
@@ -145,7 +145,7 @@ export async function checkMandatoryTasks() {
                 assignedTasks: {
                     where: {
                         isMandatory: true,
-                        status: { not: "DONE" },
+                        status: { notIn: ["DONE", "APPROVED"] },
                         dueDate: {
                             gte: startOfDay,
                             lte: endOfDay

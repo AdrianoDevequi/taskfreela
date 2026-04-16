@@ -28,13 +28,13 @@ export async function GET(req: Request) {
                 notifyDailySummary: true,
                 assignedTasks: {
                     some: {
-                        status: { not: "DONE" }
+                        status: { notIn: ["DONE", "APPROVED"] }
                     }
                 }
             },
             include: {
                 assignedTasks: {
-                    where: { status: { not: "DONE" } },
+                    where: { status: { notIn: ["DONE", "APPROVED"] } },
                     include: { project: { select: { name: true } } },
                     orderBy: { dueDate: "asc" }
                 }
