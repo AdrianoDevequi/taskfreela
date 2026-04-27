@@ -11,6 +11,14 @@ import { useSimpleMode } from "@/app/context/SimpleModeContext";
 import { useTeamTasks } from "@/app/context/TeamTasksContext";
 import { useSession } from "next-auth/react";
 
+interface TeamMember {
+  id: string;
+  name: string | null;
+  email: string | null;
+  image: string | null;
+  role: string;
+}
+
 export default function Home() {
   const { data: session } = useSession();
   const { isSimpleMode, toggleSimpleMode } = useSimpleMode();
@@ -21,6 +29,8 @@ export default function Home() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [startWithMagic, setStartWithMagic] = useState(false);
   const [startInEditMode, setStartInEditMode] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
   // Fallback for NextAuth Client Session Bug
   const [activeUser, setActiveUser] = useState<{ id?: string; email?: string } | null>(null);
@@ -37,6 +47,20 @@ export default function Home() {
       })
       .catch(console.error);
   }, []);
+
+  useEffect(() => {
+    if (showTeamTasks && !isSimpleMode) {
+      fetch("/api/team")
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setTeamMembers(data);
+        })
+        .catch(console.error);
+    } else {
+      setTeamMembers([]);
+      setSelectedMemberId(null);
+    }
+  }, [showTeamTasks, isSimpleMode]);
 
   const fetchTasks = async () => {
     try {
@@ -166,14 +190,14 @@ export default function Home() {
         <div className="hidden md:flex items-center gap-3 w-full md:w-auto">
           <button
             onClick={() => { setEditingTask(null); setStartWithMagic(true); setIsModalOpen(true); }}
-            className="flex-1 md:flex-none bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-500 hover:from-blue-700 hover:via-indigo-600 hover:to-purple-600 text-white px-4 py-2.5 rounded-xl font-bold uppercase text-[10px] md:text-xs tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-purple-500/25 border border-white/10"
+            className="flex-1 md:flex-none bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-500 hover:from-blue-700 hover:via-indigo-600 hover:to-purple-600 text-white px-4 py-2.5 rounded-full font-bold uppercase text-[10px] md:text-xs tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-purple-500/25 border border-white/10"
           >
             <Sparkles size={16} className="text-yellow-300" />
             <span>Tarefa Mágica</span>
           </button>
           <button
             onClick={() => { setEditingTask(null); setStartWithMagic(false); setIsModalOpen(true); }}
-            className="flex-1 md:flex-none bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-blue-500/25 active:scale-95 text-sm md:text-base"
+            className="flex-1 md:flex-none bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-full font-medium flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-blue-500/25 active:scale-95 text-sm md:text-base"
           >
             <Plus size={20} />
             <span className="whitespace-nowrap">Nova Tarefa</span>
@@ -181,28 +205,71 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Team member filter chips — only visible in team mode */}
+      {!isSimpleMode && showTeamTasks && teamMembers.length > 0 && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider mr-1">Filtrar:</span>
+          <button
+            onClick={() => setSelectedMemberId(null)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+              selectedMemberId === null
+                ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                : 'bg-muted/40 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            Todos
+          </button>
+          {teamMembers.map(member => (
+            <button
+              key={member.id}
+              onClick={() => setSelectedMemberId(prev => prev === member.id ? null : member.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                selectedMemberId === member.id
+                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                  : 'bg-muted/40 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              {member.image ? (
+                <img src={member.image} alt={member.name ?? ''} className="w-4 h-4 rounded-full object-cover" />
+              ) : (
+                <div className="w-4 h-4 rounded-full bg-blue-500/30 flex items-center justify-center text-[9px] font-bold text-blue-300">
+                  {(member.name ?? member.email ?? '?')[0].toUpperCase()}
+                </div>
+              )}
+              {member.name ?? member.email}
+            </button>
+          ))}
+        </div>
+      )}
+
       <TaskBoard
-        tasks={
-          isSimpleMode || !showTeamTasks
-            ? tasks.filter(t => {
-                const assignedToId = t.assignedTo?.id;
-                const assignedToEmail = (t.assignedTo as any)?.email;
-                const createdById = (t as any).createdBy?.id;
+        tasks={(() => {
+          let filtered = tasks;
 
-                // Priority 1: Use safe `activeUser` from API. Priority 2: useSession() cache.
-                const userId = activeUser?.id || (session?.user as any)?.id;
-                const userEmail = activeUser?.email || session?.user?.email;
+          // Personal filter: simple mode or team mode off
+          if (isSimpleMode || !showTeamTasks) {
+            const userId = activeUser?.id || (session?.user as any)?.id;
+            const userEmail = activeUser?.email || session?.user?.email;
+            filtered = tasks.filter(t => {
+              const assignedToId = t.assignedTo?.id;
+              const assignedToEmail = (t.assignedTo as any)?.email;
+              const createdById = (t as any).createdBy?.id;
+              const isMine = (!assignedToId) ||
+                             (assignedToId && userId && assignedToId === userId) ||
+                             (assignedToEmail && userEmail && assignedToEmail === userEmail);
+              const isPendingMyApproval = t.status === 'PENDING_APPROVAL' && userId && createdById === userId;
+              const isApprovedByMe = t.status === 'APPROVED' && userId && createdById === userId;
+              return isMine || isPendingMyApproval || isApprovedByMe;
+            });
+          }
 
-                // Show if assigned to me, unassigned, or PENDING_APPROVAL where I'm the creator
-                const isMine = (!assignedToId) ||
-                               (assignedToId && userId && assignedToId === userId) ||
-                               (assignedToEmail && userEmail && assignedToEmail === userEmail);
-                const isPendingMyApproval = t.status === 'PENDING_APPROVAL' && userId && createdById === userId;
-                const isApprovedByMe = t.status === 'APPROVED' && userId && createdById === userId;
-                return isMine || isPendingMyApproval || isApprovedByMe;
-              })
-            : tasks
-        }
+          // Member filter: applied on top when in team mode
+          if (!isSimpleMode && showTeamTasks && selectedMemberId) {
+            filtered = filtered.filter(t => t.assignedTo?.id === selectedMemberId);
+          }
+
+          return filtered;
+        })()}
         onTaskMove={handleTaskMove}
         onQuickAction={handleQuickAction}
         onEdit={handleEditTask}
