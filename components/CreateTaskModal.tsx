@@ -88,6 +88,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                 setRecurrencePattern(taskToEdit.recurrencePattern || "DAILY");
                 setRecurrenceDays(taskToEdit.recurrenceDays || "");
                 setProjectId(taskToEdit.projectId || "");
+                setAssignedToId(taskToEdit.assignedTo?.id || "");
                 if (taskToEdit.id) {
                     fetchComments(taskToEdit.id.toString());
                 }
@@ -361,9 +362,9 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
             }
         }
 
-        // In Simple Mode, force the assignee to be the current user
         const currentUserId = (session?.user as any)?.id;
-        const finalAssigneeId = isSimpleMode ? currentUserId : (assignedToId || null);
+        // In Simple Mode, force assignee to current user only for new tasks
+        const finalAssigneeId = (isSimpleMode && !taskToEdit) ? currentUserId : (assignedToId || null);
         const finalProjectId = isSimpleMode ? null : (projectId || null);
 
         onSave({
