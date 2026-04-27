@@ -174,8 +174,8 @@ export default function Home() {
                 onClick={toggleTeamTasks}
                 className={`
                   flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all
-                  ${showTeamTasks 
-                    ? 'bg-blue-500/10 text-blue-500 border border-blue-500/30' 
+                  ${showTeamTasks
+                    ? 'bg-blue-500/10 text-blue-500 border border-blue-500/30'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/50'
                   }
                 `}
@@ -184,6 +184,43 @@ export default function Home() {
                 <Users size={14} className={showTeamTasks ? "text-blue-500" : ""} />
                 <span>Equipe</span>
               </button>
+            )}
+
+            {/* Team member filter chips — inline, after Equipe button */}
+            {!isSimpleMode && showTeamTasks && teamMembers.length > 0 && (
+              <>
+                <div className="w-px h-4 bg-border/50" />
+                <button
+                  onClick={() => setSelectedMemberId(null)}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+                    selectedMemberId === null
+                      ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                      : 'bg-muted/40 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  Todos
+                </button>
+                {teamMembers.map(member => (
+                  <button
+                    key={member.id}
+                    onClick={() => setSelectedMemberId(prev => prev === member.id ? null : member.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+                      selectedMemberId === member.id
+                        ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                        : 'bg-muted/40 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    {member.image ? (
+                      <img src={member.image} alt={member.name ?? ''} className="w-4 h-4 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-4 h-4 rounded-full bg-blue-500/30 flex items-center justify-center text-[9px] font-bold text-blue-300">
+                        {(member.name ?? member.email ?? '?')[0].toUpperCase()}
+                      </div>
+                    )}
+                    {member.name ?? member.email}
+                  </button>
+                ))}
+              </>
             )}
           </div>
         </div>
@@ -204,43 +241,6 @@ export default function Home() {
           </button>
         </div>
       </div>
-
-      {/* Team member filter chips — only visible in team mode */}
-      {!isSimpleMode && showTeamTasks && teamMembers.length > 0 && (
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider mr-1">Filtrar:</span>
-          <button
-            onClick={() => setSelectedMemberId(null)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
-              selectedMemberId === null
-                ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
-                : 'bg-muted/40 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            Todos
-          </button>
-          {teamMembers.map(member => (
-            <button
-              key={member.id}
-              onClick={() => setSelectedMemberId(prev => prev === member.id ? null : member.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
-                selectedMemberId === member.id
-                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
-                  : 'bg-muted/40 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground'
-              }`}
-            >
-              {member.image ? (
-                <img src={member.image} alt={member.name ?? ''} className="w-4 h-4 rounded-full object-cover" />
-              ) : (
-                <div className="w-4 h-4 rounded-full bg-blue-500/30 flex items-center justify-center text-[9px] font-bold text-blue-300">
-                  {(member.name ?? member.email ?? '?')[0].toUpperCase()}
-                </div>
-              )}
-              {member.name ?? member.email}
-            </button>
-          ))}
-        </div>
-      )}
 
       <TaskBoard
         tasks={(() => {
