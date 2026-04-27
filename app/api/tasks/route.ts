@@ -90,7 +90,6 @@ async function sendApprovalRequestNotification(taskId: number) {
         const task = await (prisma.task as any).findUnique({
             where: { id: taskId },
             include: {
-                assignedTo: { select: { name: true } },
                 user: { select: { id: true, name: true, whatsapp: true, notifyNewTasks: true } },
                 project: { select: { name: true } }
             }
@@ -98,9 +97,18 @@ async function sendApprovalRequestNotification(taskId: number) {
 
         if (!task || !task.user?.whatsapp || !task.user.notifyNewTasks) return;
 
+        // originalAssignedToId holds who actually did the task
+        let requesterName = "O responsável";
+        if (task.originalAssignedToId) {
+            const requester = await prisma.user.findUnique({
+                where: { id: task.originalAssignedToId },
+                select: { name: true }
+            });
+            if (requester?.name) requesterName = requester.name;
+        }
+
         const projectInfo = task.project ? `\n*Projeto:* ${task.project.name}` : "";
-        const assigneeName = task.assignedTo?.name || "O responsável";
-        const message = `⏳ Olá ${task.user.name}!\n\n*${assigneeName}* está solicitando sua aprovação em uma tarefa:\n\n*Título:* ${task.title}${projectInfo}\n\nAcesse o sistema para aprovar ou rejeitar. 👇\n\nhttps://www.taskfreela.com.br/dashboard/?task=${task.id}`;
+        const message = `⏳ Olá ${task.user.name}!\n\n*${requesterName}* está solicitando sua aprovação em uma tarefa:\n\n*Título:* ${task.title}${projectInfo}\n\nAcesse o sistema para aprovar ou rejeitar. 👇\n\nhttps://www.taskfreela.com.br/dashboard/?task=${task.id}`;
 
         await evolutionService.sendText(
             settings.instanceName,
@@ -108,14 +116,46 @@ async function sendApprovalRequestNotification(taskId: number) {
             message
         );
 
-        // Web Push Notification
         await pushService.sendToUser(task.user.id, {
             title: "Tarefa aguardando aprovação ⏳",
-            body: `${assigneeName} solicitou aprovação: ${task.title}`,
+            body: `${requesterName} solicitou aprovação: ${task.title}`,
             url: `https://www.taskfreela.com.br/dashboard/?task=${task.id}`
         });
     } catch (error) {
         console.error("Error sending approval request notification:", error);
+    }
+}
+
+async function sendTaskRejectionNotification(taskId: number, originalAssignedToId: string) {
+    try {
+        const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+        if (!settings || !settings.instanceName) return;
+
+        const task = await (prisma.task as any).findUnique({
+            where: { id: taskId },
+            include: { project: { select: { name: true } } }
+        });
+        if (!task) return;
+
+        const assignee = await prisma.user.findUnique({
+            where: { id: originalAssignedToId },
+            select: { id: true, name: true, whatsapp: true, notifyNewTasks: true }
+        });
+        if (!assignee?.whatsapp || !assignee.notifyNewTasks) return;
+
+        const tomorrow = format(task.dueDate, "dd/MM/yyyy", { locale: ptBR });
+        const projectInfo = task.project ? `\n*Projeto:* ${task.project.name}` : "";
+        const message = `❌ Olá ${assignee.name}!\n\nSua tarefa foi *recusada* e precisa de ajustes:\n\n*Título:* ${task.title}${projectInfo}\n*Novo Prazo:* ${tomorrow}\n\nVerifique os comentários para mais detalhes. 👇\n\nhttps://www.taskfreela.com.br/dashboard/?task=${task.id}`;
+
+        await evolutionService.sendText(settings.instanceName, assignee.whatsapp, message);
+
+        await pushService.sendToUser(assignee.id, {
+            title: "Tarefa recusada ❌",
+            body: `Sua tarefa precisa de ajustes: ${task.title}`,
+            url: `https://www.taskfreela.com.br/dashboard/?task=${task.id}`
+        });
+    } catch (error) {
+        console.error("Error sending rejection notification:", error);
     }
 }
 
@@ -260,30 +300,52 @@ export function PUT(req: Request) {
             }
         }
 
+        const updateData: any = {};
+        if (status !== undefined) updateData.status = status;
+        if (title !== undefined) updateData.title = title;
+        if (description !== undefined) updateData.description = description;
+        if (dueDate !== undefined) updateData.dueDate = new Date(dueDate);
+        if (estimatedTime !== undefined) updateData.estimatedTime = estimatedTime;
+        if (assignedToId !== undefined) updateData.assignedToId = assignedToId || null;
+        if (projectId !== undefined) updateData.projectId = projectId || null;
+        if (isMandatory !== undefined) updateData.isMandatory = isMandatory;
+        if (isRecurring !== undefined) updateData.isRecurring = isRecurring;
+        if (recurrencePattern !== undefined) updateData.recurrencePattern = recurrencePattern;
+        if (recurrenceDays !== undefined) updateData.recurrenceDays = recurrenceDays;
+
+        const existingAny = existing as any;
+        const isMovingToPending = status === 'PENDING_APPROVAL' && existing.status !== 'PENDING_APPROVAL';
+        const isResolvingApproval = existing.status === 'PENDING_APPROVAL' && (status === 'APPROVED' || status === 'TODO');
+
+        if (isMovingToPending) {
+            // Muda responsável para o aprovador (criador da tarefa)
+            updateData.originalAssignedToId = existing.assignedToId;
+            updateData.assignedToId = existing.userId;
+        } else if (isResolvingApproval) {
+            // Restaura o responsável original
+            updateData.assignedToId = existingAny.originalAssignedToId || existing.assignedToId;
+            updateData.originalAssignedToId = null;
+
+            if (status === 'TODO') {
+                // Recusada: ajusta prazo para o próximo dia
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                tomorrow.setHours(12, 0, 0, 0);
+                updateData.dueDate = tomorrow;
+            }
+        }
+
         const task = await prisma.task.update({
             where: { id: Number(id) },
-            data: {
-                ...(status !== undefined && { status }),
-                ...(title !== undefined && { title }),
-                ...(description !== undefined && { description }),
-                ...(dueDate !== undefined && { dueDate: new Date(dueDate) }),
-                ...(estimatedTime !== undefined && { estimatedTime }),
-                ...(assignedToId !== undefined && { assignedToId: assignedToId || null }),
-                ...(projectId !== undefined && { projectId: projectId || null }),
-                ...(isMandatory !== undefined && { isMandatory }),
-                ...(isRecurring !== undefined && { isRecurring }),
-                ...(recurrencePattern !== undefined && { recurrencePattern }),
-                ...(recurrenceDays !== undefined && { recurrenceDays }),
-            } as any,
+            data: updateData,
             include: {
                 assignedTo: { select: { id: true, name: true, email: true, image: true } },
                 project: { select: { id: true, name: true, url: true } },
             },
         });
 
-        // Trigger notification if assignedTo was changed and it's not a self-assignment
-        if (assignedToId && assignedToId !== existing.assignedToId && assignedToId !== session.user.id) {
-            // Await is required on Vercel
+        // Notify if assignee changed manually (not via approval flow)
+        if (!isMovingToPending && !isResolvingApproval && assignedToId && assignedToId !== existing.assignedToId && assignedToId !== session.user.id) {
             await sendTaskAssignmentNotification(task.id, assignedToId);
         }
 
@@ -292,8 +354,13 @@ export function PUT(req: Request) {
             await sendTaskApprovalNotification(task.id);
         }
 
+        // Notify original assignee when task is rejected
+        if (status === 'TODO' && existing.status === 'PENDING_APPROVAL' && existingAny.originalAssignedToId) {
+            await sendTaskRejectionNotification(task.id, existingAny.originalAssignedToId);
+        }
+
         // Notify creator when assignee requests approval
-        if (status === 'PENDING_APPROVAL' && existing.status !== 'PENDING_APPROVAL') {
+        if (isMovingToPending) {
             await sendApprovalRequestNotification(task.id);
         }
 
