@@ -190,16 +190,6 @@ export default function Home() {
             {!isSimpleMode && showTeamTasks && teamMembers.length > 0 && (
               <>
                 <div className="w-px h-4 bg-border/50" />
-                <button
-                  onClick={() => setSelectedMemberId(null)}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all border ${
-                    selectedMemberId === null
-                      ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
-                      : 'bg-muted/40 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground'
-                  }`}
-                >
-                  Todos
-                </button>
                 {teamMembers.map(member => (
                   <button
                     key={member.id}
