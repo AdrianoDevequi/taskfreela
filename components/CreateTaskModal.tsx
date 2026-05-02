@@ -725,7 +725,14 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                                                 prose-p:mb-3 last:prose-p:mb-0
                                                 mb-4
                                             ">
-                                                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm, remarkBreaks]}
+                                                    components={{
+                                                        p: ({ children }) => (
+                                                            <p style={{ marginBottom: '0.75rem' }}>{children}</p>
+                                                        ),
+                                                    }}
+                                                >
                                                     {cleanText}
                                                 </ReactMarkdown>
                                             </div>
