@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 
 interface CreateTaskModalProps {
     isOpen: boolean;
@@ -724,7 +725,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSave, onQuickAction
                                                 prose-p:mb-3 last:prose-p:mb-0
                                                 mb-4
                                             ">
-                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                                                     {cleanText}
                                                 </ReactMarkdown>
                                             </div>
