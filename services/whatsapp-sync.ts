@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { createWhatsappClient, WhatsappClient } from "@/services/whatsapp-client";
@@ -128,25 +130,76 @@ function chunk<T>(arr: T[], size: number): T[][] {
     return out;
 }
 
+type ChatUpsertRow = {
+    id: string;
+    instanceId: string;
+    remoteJid: string;
+    type: string;
+    name: string | null;
+    lastMessageAt: Date | null;
+    lastFromMe: boolean;
+    lastPreview: string | null;
+    unreadCount: number;
+    priority: string;
+    status: string;
+    firstPendingAt: Date | null;
+};
+
+/**
+ * Grava todos os chats em LOTE com um único INSERT ... ON DUPLICATE KEY UPDATE por
+ * batch (em vez de um UPDATE por conversa). Não toca em colunas de estado manual
+ * (resolvedAt, isMuted, ignored, taskId, slaAlertedAt, lastResponseSeconds).
+ */
+async function bulkUpsertChats(rows: ChatUpsertRow[]) {
+    const now = new Date();
+    for (const batch of chunk(rows, 200)) {
+        if (!batch.length) continue;
+        const values = batch.map(
+            (r) =>
+                Prisma.sql`(${r.id}, ${r.instanceId}, ${r.remoteJid}, ${r.type}, ${r.name}, ${r.lastMessageAt}, ${r.lastFromMe ? 1 : 0}, ${r.lastPreview}, ${r.unreadCount}, ${r.priority}, ${r.status}, ${r.firstPendingAt}, ${now})`
+        );
+        await prisma.$executeRaw`
+            INSERT INTO WhatsappChat
+                (id, instanceId, remoteJid, type, name, lastMessageAt, lastFromMe, lastPreview, unreadCount, priority, status, firstPendingAt, updatedAt)
+            VALUES ${Prisma.join(values)}
+            ON DUPLICATE KEY UPDATE
+                type = VALUES(type),
+                name = VALUES(name),
+                lastMessageAt = VALUES(lastMessageAt),
+                lastFromMe = VALUES(lastFromMe),
+                lastPreview = VALUES(lastPreview),
+                unreadCount = VALUES(unreadCount),
+                priority = VALUES(priority),
+                status = VALUES(status),
+                firstPendingAt = VALUES(firstPendingAt),
+                updatedAt = VALUES(updatedAt)
+        `;
+    }
+}
+
 /**
  * Sincroniza contatos + chats de uma instância, cruzando nome salvo e isSaved e
- * recalculando prioridade/status. Preserva status "resolved"/"mute" manual.
+ * recalculando prioridade/status. Preserva status "resolved"/"mute"/"ignored" manual.
  *
- * Otimizado para escala (instâncias com milhares de chats / limite de 30s no
- * serverless): grava em LOTE (createMany) e, em re-syncs, só atualiza os chats
- * que realmente mudaram — em vez de uma query por conversa.
+ * Otimizado para o limite de 30s do serverless: busca contatos/chats/grupos da
+ * Evolution em PARALELO e grava os chats num único bulk upsert.
  */
 export async function syncInstance(instanceId: string): Promise<{ chats: number; contacts: number }> {
     const ctx = await getInstanceWithClient(instanceId);
     if (!ctx) throw new Error("Instância não encontrada.");
     const { instance, client } = ctx;
 
-    // 1) Contatos — snapshot: limpa e regrava em lote (são apenas cache de nome/isSaved)
-    const contactsRes = await client.findContacts(instance.instanceName);
+    // Busca contatos e chats da Evolution em PARALELO + lê os chats existentes.
+    const [contactsRes, chatsRes, existingChats] = await Promise.all([
+        client.findContacts(instance.instanceName),
+        client.findChats(instance.instanceName),
+        prisma.whatsappChat.findMany({ where: { instanceId } }),
+    ]);
+
+    // 1) Contatos — snapshot: limpa e regrava em lote (cache de nome/isSaved)
     const contactsRaw: any[] = Array.isArray(contactsRes.data) ? contactsRes.data : contactsRes.data?.contacts || [];
     const savedMap = new Map<string, { pushName?: string; isSaved: boolean; isGroup: boolean }>();
     const contactRows: any[] = [];
-
     for (const c of contactsRaw) {
         const remoteJid: string = c.remoteJid || c.id;
         if (!remoteJid || remoteJid === BROADCAST_JID || savedMap.has(remoteJid)) continue;
@@ -156,41 +209,33 @@ export async function syncInstance(instanceId: string): Promise<{ chats: number;
         savedMap.set(remoteJid, { pushName: pushName || undefined, isSaved, isGroup });
         contactRows.push({ instanceId, remoteJid, pushName, isSaved, isGroup });
     }
-
     await prisma.whatsappContact.deleteMany({ where: { instanceId } });
     for (const batch of chunk(contactRows, 500)) {
         if (batch.length) await prisma.whatsappContact.createMany({ data: batch, skipDuplicates: true });
     }
-
-    // 2) Chats — dedupe, compara com o existente e separa em create/update
-    const chatsRes = await client.findChats(instance.instanceName);
-    const chatsRaw: any[] = Array.isArray(chatsRes.data) ? chatsRes.data : chatsRes.data?.chats || [];
-
+    // 2) Chats — dedupe
     const incoming = new Map<string, any>();
-    for (const ch of chatsRaw) {
+    for (const ch of Array.isArray(chatsRes.data) ? chatsRes.data : chatsRes.data?.chats || []) {
         const remoteJid: string = ch.remoteJid || ch.id;
         if (!remoteJid || remoteJid === BROADCAST_JID) continue;
         incoming.set(remoteJid, ch);
     }
-
-    const existingChats = await prisma.whatsappChat.findMany({ where: { instanceId } });
     const existingByJid = new Map(existingChats.map((c) => [c.remoteJid, c]));
 
-    // Nome real dos grupos (subject) — em findChats o pushName de grupo é o do último
-    // remetente, não o nome do grupo. Buscamos via fetchAllGroups (best-effort).
+    // 3) Nome real dos grupos (subject) — fetchAllGroups é LENTO (segundos): só busca
+    // quando há grupo ainda sem nome no banco (novos). Em re-syncs já nomeados, pula.
     const groupNames = new Map<string, string>();
-    if ([...incoming.keys()].some(isGroupJid)) {
-        const gRes = await client.fetchAllGroups(instance.instanceName, false);
-        const groups: any[] = Array.isArray(gRes.data) ? gRes.data : gRes.data?.groups || [];
+    const needsGroups = [...incoming.keys()].some((jid) => isGroupJid(jid) && !existingByJid.get(jid)?.name);
+    if (needsGroups) {
+        const groupsRes = await client.fetchAllGroups(instance.instanceName, false);
+        const groups: any[] = Array.isArray(groupsRes.data) ? groupsRes.data : groupsRes.data?.groups || [];
         for (const g of groups) {
             const jid = g?.id || g?.jid;
             if (jid && g?.subject) groupNames.set(jid, g.subject);
         }
     }
 
-    const creates: any[] = [];
-    const updates: { id: string; data: any }[] = [];
-
+    const rows: ChatUpsertRow[] = [];
     for (const [remoteJid, ch] of incoming) {
         const isGroup = isGroupJid(remoteJid);
         const saved = savedMap.get(remoteJid);
@@ -210,8 +255,7 @@ export async function syncInstance(instanceId: string): Promise<{ chats: number;
             : null;
         const priority = classifyPriority({ isGroup, isSaved });
 
-        // Status: derivado de lastFromMe, preservando "resolved" manual se não houver
-        // entrada mais nova que a resolução.
+        // Status: derivado de lastFromMe, preservando "resolved" manual.
         let status: string;
         let firstPendingAt: Date | null;
         if (lastFromMe) {
@@ -231,46 +275,23 @@ export async function syncInstance(instanceId: string): Promise<{ chats: number;
                 existing?.status === "pending" && existing.firstPendingAt ? existing.firstPendingAt : lastMessageAt;
         }
 
-        const unreadCount = ch.unreadCount ?? existing?.unreadCount ?? 0;
-        const type = isGroup ? "group" : "person";
-
-        if (!existing) {
-            creates.push({
-                instanceId,
-                remoteJid,
-                type,
-                name,
-                lastMessageAt,
-                lastFromMe,
-                lastPreview,
-                unreadCount,
-                priority,
-                status,
-                firstPendingAt,
-            });
-        } else {
-            const changed =
-                (existing.lastMessageAt?.getTime() || 0) !== (lastMessageAt?.getTime() || 0) ||
-                existing.lastFromMe !== lastFromMe ||
-                existing.unreadCount !== unreadCount ||
-                existing.status !== status ||
-                existing.name !== name ||
-                existing.priority !== priority;
-            if (changed) {
-                updates.push({
-                    id: existing.id,
-                    data: { type, name, lastMessageAt, lastFromMe, lastPreview, unreadCount, priority, status, firstPendingAt },
-                });
-            }
-        }
+        rows.push({
+            id: existing?.id || randomUUID(),
+            instanceId,
+            remoteJid,
+            type: isGroup ? "group" : "person",
+            name,
+            lastMessageAt,
+            lastFromMe,
+            lastPreview,
+            unreadCount: ch.unreadCount ?? existing?.unreadCount ?? 0,
+            priority,
+            status,
+            firstPendingAt,
+        });
     }
 
-    for (const batch of chunk(creates, 500)) {
-        if (batch.length) await prisma.whatsappChat.createMany({ data: batch, skipDuplicates: true });
-    }
-    for (const u of updates) {
-        await prisma.whatsappChat.update({ where: { id: u.id }, data: u.data });
-    }
+    await bulkUpsertChats(rows);
 
     // auto-resolve conversas pendentes muito antigas (> AUTO_RESOLVE_DAYS sem resposta)
     const staleCutoff = new Date(Date.now() - AUTO_RESOLVE_DAYS * 24 * 60 * 60 * 1000);
