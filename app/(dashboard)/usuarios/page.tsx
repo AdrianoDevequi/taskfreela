@@ -26,14 +26,7 @@ export default async function AdminUsersPage() {
         redirect("/dashboard"); // Kick non-admins out
     }
 
-    // Fetch all users with their sessions to calculate "Last Access"
     const allUsers = await prisma.user.findMany({
-        include: {
-            session: {
-                orderBy: { expires: 'desc' },
-                take: 1, // Get the most recent session
-            }
-        },
         orderBy: {
             createdAt: 'desc'
         }
@@ -68,10 +61,8 @@ export default async function AdminUsersPage() {
                             {(allUsers as any[]).map((u) => {
                                 // Calculate Last Access from session. If no session, fallback to "Nunca fez login".
                                 let lastAccessDisplay = "Sem registro de login";
-                                if (u.session && u.session.length > 0) {
-                                  // NextAuth sets `expires` 30 days in the future from the last active ping
-                                  const lastActiveDate = new Date(u.session[0].expires.getTime() - (30 * 24 * 60 * 60 * 1000));
-                                  lastAccessDisplay = format(lastActiveDate, "dd 'de' MMMM 'de' yyyy, 'às' HH:mm", { locale: ptBR });
+                                if (u.lastLoginAt) {
+                                  lastAccessDisplay = format(new Date(u.lastLoginAt), "dd 'de' MMMM 'de' yyyy, 'às' HH:mm", { locale: ptBR });
                                 }
 
                                 return (

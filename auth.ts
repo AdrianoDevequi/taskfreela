@@ -25,6 +25,10 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                     const passwordsMatch = await bcrypt.compare(password, user.password);
 
                     if (passwordsMatch) {
+                        await prisma.user.update({
+                            where: { id: user.id },
+                            data: { lastLoginAt: new Date() },
+                        });
                         const activeMember = user.workspaceMembers.find(m => m.workspaceId === user.activeWorkspaceId);
                         return {
                             ...user,
