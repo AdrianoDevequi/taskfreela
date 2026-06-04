@@ -30,7 +30,10 @@ function appBaseUrl(): string {
         process.env.AUTH_URL ||
         process.env.NEXTAUTH_URL ||
         "https://www.taskfreela.com.br";
-    return raw.replace(/\/+$/, "");
+    const cleaned = raw.replace(/\/+$/, "");
+    // o webhook precisa de URL pública — nunca apontar para localhost
+    if (/localhost|127\.0\.0\.1/.test(cleaned)) return "https://www.taskfreela.com.br";
+    return cleaned;
 }
 
 function webhookUrlFor(instanceId: string, secret: string): string {
@@ -412,6 +415,10 @@ export async function syncInstance(instanceId: string): Promise<ActionResult<{ c
         const userId = await requireUserId();
         const ctx = await getInstanceWithClient(instanceId, userId);
         if (!ctx) return { success: false, error: "Instância não encontrada." };
+        // reaponta o webhook para a URL pública atual (corrige instâncias importadas antes do deploy)
+        await ctx.client
+            .setWebhook(ctx.instance.instanceName, webhookUrlFor(ctx.instance.id, ctx.instance.webhookSecret), WEBHOOK_EVENTS)
+            .catch(() => {});
         const result = await runSyncInstance(instanceId);
         revalidatePath("/whatsapp");
         return { success: true, data: result };
