@@ -1,0 +1,519 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+    Loader2,
+    Search,
+    Send,
+    Check,
+    CheckCheck,
+    RefreshCw,
+    Users,
+    User,
+    AlertCircle,
+    Inbox as InboxIcon,
+    ArrowLeft,
+    Image as ImageIcon,
+    Video as VideoIcon,
+    Mic,
+    FileText,
+    Download,
+} from "lucide-react";
+import { WhatsappTabs } from "./WhatsappTabs";
+import { Dropdown, MultiDropdown } from "./FilterDropdown";
+import {
+    listChats,
+    getChatMessages,
+    sendReply,
+    markChatRead,
+    setChatResolved,
+    getMessageMedia,
+    type ChatFilters,
+} from "@/app/actions/whatsapp";
+
+type Chat = {
+    id: string;
+    instanceId: string;
+    instanceLabel: string;
+    remoteJid: string;
+    type: string;
+    name: string | null;
+    lastMessageAt: string | Date | null;
+    lastFromMe: boolean;
+    lastPreview: string | null;
+    unreadCount: number;
+    priority: string;
+    status: string;
+    firstPendingAt: string | Date | null;
+    lastResponseSeconds: number | null;
+    isMuted: boolean;
+};
+
+type InstanceLite = { id: string; instanceName: string; profileName: string | null };
+
+type Message = {
+    id: string;
+    fromMe: boolean;
+    preview: string | null;
+    type: string;
+    timestamp: string | Date;
+};
+
+const POLL_MS = 8000;
+
+function fmtTime(value: string | Date | null): string {
+    if (!value) return "";
+    const d = new Date(value);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    return sameDay
+        ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+        : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function fmtDuration(fromValue: string | Date | null): string {
+    if (!fromValue) return "";
+    const secs = Math.max(0, Math.round((Date.now() - new Date(fromValue).getTime()) / 1000));
+    return humanizeSeconds(secs);
+}
+
+function humanizeSeconds(secs: number): string {
+    if (secs < 60) return `${secs}s`;
+    const m = Math.floor(secs / 60);
+    if (m < 60) return `${m}min`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ${m % 60}min`;
+    const d = Math.floor(h / 24);
+    return `${d}d ${h % 24}h`;
+}
+
+function jidNumber(jid: string): string {
+    return jid.split("@")[0];
+}
+
+function priorityDot(priority: string): string {
+    if (priority === "high") return "bg-red-500";
+    if (priority === "medium") return "bg-amber-500";
+    return "bg-muted-foreground/40";
+}
+
+export function InboxClient({
+    initialChats,
+    instances,
+}: {
+    initialChats: Chat[];
+    instances: InstanceLite[];
+}) {
+    const [chats, setChats] = useState<Chat[]>(initialChats);
+    const [filters, setFilters] = useState<ChatFilters>({});
+    const [selected, setSelected] = useState<Chat | null>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [loadingMsgs, setLoadingMsgs] = useState(false);
+    const [reply, setReply] = useState("");
+    const [sending, setSending] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const filtersRef = useRef(filters);
+    filtersRef.current = filters;
+    const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+    const refreshList = useCallback(async () => {
+        try {
+            const res = await listChats(filtersRef.current);
+            setChats(res.chats as Chat[]);
+        } catch {
+            /* ignore poll errors */
+        }
+    }, []);
+
+    // refetch when filters change
+    useEffect(() => {
+        setRefreshing(true);
+        refreshList().finally(() => setRefreshing(false));
+    }, [filters, refreshList]);
+
+    // polling
+    useEffect(() => {
+        const id = setInterval(() => {
+            refreshList();
+        }, POLL_MS);
+        return () => clearInterval(id);
+    }, [refreshList]);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    async function openChat(chat: Chat) {
+        setSelected(chat);
+        setMessages([]);
+        setLoadingMsgs(true);
+        try {
+            const res = await getChatMessages(chat.id);
+            setMessages(res.messages as Message[]);
+            if (chat.unreadCount > 0) {
+                markChatRead(chat.id).then(refreshList);
+            }
+        } catch (e: any) {
+            alert("❌ " + (e?.message || "Erro ao abrir conversa."));
+        } finally {
+            setLoadingMsgs(false);
+        }
+    }
+
+    async function handleSend() {
+        if (!selected || !reply.trim()) return;
+        const text = reply.trim();
+        if (!confirm(`Enviar para ${selected.name || jidNumber(selected.remoteJid)}?\n\n"${text}"`)) return;
+        setSending(true);
+        try {
+            const res = await sendReply(selected.id, text);
+            if (res.success) {
+                setReply("");
+                const updated = await getChatMessages(selected.id);
+                setMessages(updated.messages as Message[]);
+                refreshList();
+            } else {
+                alert("❌ " + res.error);
+            }
+        } finally {
+            setSending(false);
+        }
+    }
+
+    async function handleResolve(chat: Chat) {
+        await setChatResolved(chat.id, chat.status !== "resolved");
+        refreshList();
+        if (selected?.id === chat.id) {
+            setSelected({ ...chat, status: chat.status !== "resolved" ? "resolved" : "answered" });
+        }
+    }
+
+    const pendingCount = chats.filter((c) => c.status === "pending").length;
+
+    return (
+        <div className="max-w-6xl mx-auto py-6 h-[calc(100vh-3rem)] flex flex-col">
+            <div className="mb-2 flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold mb-1">WhatsApp</h1>
+                    <p className="text-muted-foreground">
+                        Inbox unificado · {pendingCount > 0 ? `${pendingCount} sem resposta` : "tudo respondido"}
+                    </p>
+                </div>
+                <button
+                    onClick={() => { setRefreshing(true); refreshList().finally(() => setRefreshing(false)); }}
+                    className="flex items-center gap-2 bg-muted hover:bg-muted/70 px-3 py-2 rounded-lg text-sm font-semibold transition-colors"
+                >
+                    <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} /> Atualizar
+                </button>
+            </div>
+            <WhatsappTabs />
+
+            {instances.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center text-muted-foreground">
+                        <InboxIcon size={40} className="mx-auto mb-3 opacity-40" />
+                        <p className="mb-3">Nenhum WhatsApp conectado ainda.</p>
+                        <a href="/whatsapp/conexoes" className="text-primary font-semibold hover:underline">
+                            Conectar um WhatsApp →
+                        </a>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex-1 min-h-0 flex gap-4">
+                    {/* Conversation list */}
+                    <div className={`w-full md:w-[380px] shrink-0 flex flex-col bg-card border border-border rounded-xl overflow-hidden ${selected ? "hidden md:flex" : "flex"}`}>
+                        {/* Filters */}
+                        <div className="p-3 border-b border-border space-y-2">
+                            <div className="relative">
+                                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <input
+                                    value={filters.search || ""}
+                                    onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value || undefined }))}
+                                    placeholder="Buscar nome, número ou texto..."
+                                    className="w-full bg-muted/50 border border-input rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                />
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <MultiDropdown
+                                    allLabel="Todas as contas"
+                                    values={filters.instanceIds || []}
+                                    onChange={(ids) => setFilters((f) => ({ ...f, instanceIds: ids.length ? ids : undefined }))}
+                                    options={instances.map((i) => ({ value: i.id, label: i.profileName || i.instanceName }))}
+                                />
+                                <Dropdown
+                                    value={filters.status || ""}
+                                    onChange={(v) => setFilters((f) => ({ ...f, status: (v || undefined) as ChatFilters["status"] }))}
+                                    options={[
+                                        { value: "", label: "Todos status" },
+                                        { value: "pending", label: "Sem resposta" },
+                                        { value: "unread", label: "Não lidas" },
+                                        { value: "answered", label: "Respondidas" },
+                                        { value: "resolved", label: "Resolvidas" },
+                                    ]}
+                                />
+                                <Dropdown
+                                    value={filters.type || ""}
+                                    onChange={(v) => setFilters((f) => ({ ...f, type: (v || undefined) as ChatFilters["type"] }))}
+                                    options={[
+                                        { value: "", label: "Pessoas e grupos" },
+                                        { value: "person", label: "Pessoas" },
+                                        { value: "group", label: "Grupos" },
+                                    ]}
+                                />
+                                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer px-2 py-1.5">
+                                    <input
+                                        type="checkbox"
+                                        checked={Boolean(filters.includeLow)}
+                                        onChange={(e) => setFilters((f) => ({ ...f, includeLow: e.target.checked || undefined }))}
+                                    />
+                                    Não salvos
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* List */}
+                        <div className="flex-1 overflow-y-auto">
+                            {chats.length === 0 ? (
+                                <div className="p-8 text-center text-sm text-muted-foreground">
+                                    Nenhuma conversa. Sincronize uma instância em Conexões.
+                                </div>
+                            ) : (
+                                chats.map((chat) => (
+                                    <button
+                                        key={chat.id}
+                                        onClick={() => openChat(chat)}
+                                        className={`w-full text-left px-3 py-3 border-b border-border/60 hover:bg-muted/40 transition-colors flex gap-3 ${
+                                            selected?.id === chat.id ? "bg-muted/60" : ""
+                                        }`}
+                                    >
+                                        <div className="relative shrink-0">
+                                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                                                {chat.type === "group" ? <Users size={18} /> : <User size={18} />}
+                                            </div>
+                                            <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${priorityDot(chat.priority)}`} />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="font-semibold text-sm truncate">
+                                                    {chat.name || jidNumber(chat.remoteJid)}
+                                                </span>
+                                                <span className="text-[10px] text-muted-foreground shrink-0">{fmtTime(chat.lastMessageAt)}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                                                    {chat.lastFromMe && <CheckCheck size={13} className="shrink-0 text-muted-foreground" />}
+                                                    {chat.lastPreview || "—"}
+                                                </span>
+                                                {chat.unreadCount > 0 && (
+                                                    <span className="bg-green-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center shrink-0">
+                                                        {chat.unreadCount}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-[10px] text-muted-foreground truncate">{chat.instanceLabel}</span>
+                                                {chat.status === "pending" && (
+                                                    <span className="text-[10px] font-semibold text-red-400 flex items-center gap-1">
+                                                        <AlertCircle size={11} /> sem resposta há {fmtDuration(chat.firstPendingAt)}
+                                                    </span>
+                                                )}
+                                                {chat.status === "resolved" && (
+                                                    <span className="text-[10px] font-semibold text-blue-400">resolvida</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Conversation panel */}
+                    <div className={`flex-1 min-w-0 flex flex-col bg-card border border-border rounded-xl overflow-hidden ${selected ? "flex" : "hidden md:flex"}`}>
+                        {!selected ? (
+                            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                                <div className="text-center">
+                                    <InboxIcon size={40} className="mx-auto mb-3 opacity-40" />
+                                    Selecione uma conversa
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Header */}
+                                <div className="p-3 border-b border-border flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <button onClick={() => setSelected(null)} className="md:hidden p-1 text-muted-foreground">
+                                            <ArrowLeft size={18} />
+                                        </button>
+                                        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground shrink-0">
+                                            {selected.type === "group" ? <Users size={16} /> : <User size={16} />}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="font-semibold text-sm truncate">{selected.name || jidNumber(selected.remoteJid)}</div>
+                                            <div className="text-[11px] text-muted-foreground truncate">
+                                                {selected.instanceLabel}
+                                                {selected.lastResponseSeconds != null &&
+                                                    ` · última resposta em ${humanizeSeconds(selected.lastResponseSeconds)}`}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                            onClick={() => handleResolve(selected)}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                                selected.status === "resolved"
+                                                    ? "bg-blue-500/10 text-blue-400"
+                                                    : "bg-muted hover:bg-muted/70"
+                                            }`}
+                                            title="Marcar como resolvida"
+                                        >
+                                            <Check size={14} /> {selected.status === "resolved" ? "Resolvida" : "Resolver"}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Messages */}
+                                <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-background/40">
+                                    {loadingMsgs ? (
+                                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                                            <Loader2 className="animate-spin" />
+                                        </div>
+                                    ) : messages.length === 0 ? (
+                                        <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                                            Sem mensagens carregadas.
+                                        </div>
+                                    ) : (
+                                        messages.map((m) => <MessageBubble key={m.id} message={m} />)
+                                    )}
+                                    <div ref={messagesEndRef} />
+                                </div>
+
+                                {/* Composer */}
+                                <div className="p-3 border-t border-border flex items-end gap-2">
+                                    <textarea
+                                        value={reply}
+                                        onChange={(e) => setReply(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleSend();
+                                            }
+                                        }}
+                                        rows={1}
+                                        placeholder="Escreva uma resposta... (Enter envia, Shift+Enter quebra linha)"
+                                        className="flex-1 resize-none bg-muted/50 border border-input rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 max-h-32"
+                                    />
+                                    <button
+                                        onClick={handleSend}
+                                        disabled={sending || !reply.trim()}
+                                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
+                                    >
+                                        {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+type MediaKind = "image" | "video" | "audio" | "document" | null;
+
+function mediaKind(type: string): MediaKind {
+    if (type === "imageMessage" || type === "stickerMessage") return "image";
+    if (type === "videoMessage") return "video";
+    if (type === "audioMessage") return "audio";
+    if (type === "documentMessage") return "document";
+    return null;
+}
+
+function MessageBubble({ message }: { message: Message }) {
+    const m = message;
+    const kind = mediaKind(m.type);
+    const [media, setMedia] = useState<{ url: string; mimetype: string; fileName?: string } | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    async function loadMedia() {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await getMessageMedia(m.id);
+            if (res.success && res.data) {
+                // mimetype pode vir como "audio/ogg; codecs=opus" — para o data URL usamos só o tipo base
+                const cleanMime = (res.data.mimetype || "application/octet-stream").split(";")[0].trim();
+                setMedia({
+                    url: `data:${cleanMime};base64,${res.data.base64}`,
+                    mimetype: res.data.mimetype,
+                    fileName: res.data.fileName,
+                });
+            } else if (!res.success) {
+                setError(res.error);
+            }
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const caption = m.preview && !/^\[.*\]$/.test(m.preview) ? m.preview : null;
+    const triggerLabel =
+        kind === "image" ? "Ver imagem" : kind === "video" ? "Ver vídeo" : kind === "audio" ? "Ouvir áudio" : "Baixar documento";
+    const TriggerIcon = kind === "image" ? ImageIcon : kind === "video" ? VideoIcon : kind === "audio" ? Mic : FileText;
+
+    return (
+        <div className={`flex ${m.fromMe ? "justify-end" : "justify-start"}`}>
+            <div
+                className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
+                    m.fromMe ? "bg-green-600 text-white rounded-br-sm" : "bg-muted text-foreground rounded-bl-sm"
+                }`}
+            >
+                {kind && !media ? (
+                    <div>
+                        <button
+                            onClick={loadMedia}
+                            disabled={loading}
+                            className={`flex items-center gap-2 font-medium underline-offset-2 hover:underline disabled:opacity-60 ${
+                                m.fromMe ? "text-white" : "text-foreground"
+                            }`}
+                        >
+                            {loading ? <Loader2 size={15} className="animate-spin" /> : <TriggerIcon size={15} />}
+                            {triggerLabel}
+                        </button>
+                        {error && (
+                            <p className={`text-[11px] mt-1 ${m.fromMe ? "text-white/80" : "text-muted-foreground"}`}>{error}</p>
+                        )}
+                    </div>
+                ) : kind && media ? (
+                    <div className="space-y-1">
+                        {kind === "image" && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={media.url} alt="imagem" className="rounded-lg max-h-72 w-auto" />
+                        )}
+                        {kind === "video" && <video src={media.url} controls className="rounded-lg max-h-72 w-auto" />}
+                        {kind === "audio" && <audio src={media.url} controls className="w-56 max-w-full" />}
+                        {kind === "document" && (
+                            <a
+                                href={media.url}
+                                download={media.fileName || "documento"}
+                                className={`flex items-center gap-2 font-medium underline ${m.fromMe ? "text-white" : "text-primary"}`}
+                            >
+                                <Download size={15} /> {media.fileName || "Baixar documento"}
+                            </a>
+                        )}
+                    </div>
+                ) : (
+                    <p className="whitespace-pre-wrap break-words">{m.preview || "[mídia]"}</p>
+                )}
+
+                {kind && caption && <p className="whitespace-pre-wrap break-words mt-1">{caption}</p>}
+
+                <span className={`block text-[9px] mt-1 ${m.fromMe ? "text-white/70" : "text-muted-foreground"}`}>
+                    {fmtTime(m.timestamp)}
+                </span>
+            </div>
+        </div>
+    );
+}

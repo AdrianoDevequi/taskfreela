@@ -1,7 +1,7 @@
 "use client";
 
 import { logout } from "@/app/lib/actions";
-import { LayoutDashboard, Users, User, Settings, LogOut, CheckSquare, BarChart3, Bell, Calendar, Briefcase, ShieldAlert, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Users, User, Settings, LogOut, CheckSquare, BarChart3, Bell, Calendar, Briefcase, ShieldAlert, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
@@ -36,6 +36,7 @@ export default function Sidebar({ user, className, onLinkClick, collapsed = fals
                 {!isSimpleMode && <NavItem href="/projetos" icon={Briefcase} label="Projetos" onClick={onLinkClick} collapsed={collapsed} />}
                 <NavItem href="/lembretes" icon={Bell} label="Lembretes" onClick={onLinkClick} collapsed={collapsed} />
                 <NavItem href="/agenda" icon={Calendar} label="Agenda" onClick={onLinkClick} collapsed={collapsed} />
+                <NavItem href="/whatsapp" icon={MessageCircle} label="WhatsApp" onClick={onLinkClick} collapsed={collapsed} />
                 <NavItem href="/reports" icon={BarChart3} label="Relatórios" onClick={onLinkClick} collapsed={collapsed} />
                 {!isSimpleMode && <NavItem href="/equipe" icon={Users} label="Equipe" onClick={onLinkClick} collapsed={collapsed} />}
                 {!isSimpleMode && user?.isSuperAdmin && <NavItem href="/usuarios" icon={ShieldAlert} label="Usuários" onClick={onLinkClick} collapsed={collapsed} />}

@@ -152,12 +152,15 @@ model user {
   notifyMandatoryTasks Boolean @default(true)
   showTeamTasks      Boolean @default(false)
   isSuperAdmin       Boolean @default(false)
+  lastLoginAt        DateTime?
   createdTasks      task[]            @relation("TaskCreator")
   assignedTasks     task[]            @relation("TaskAssignee")
   activeWorkspace   workspace?        @relation("ActiveWorkspace", fields: [activeWorkspaceId], references: [id], onDelete: SetNull)
   workspaceMembers  WorkspaceMember[]
   comments          comment[]
   pushSubscriptions PushSubscription[]
+  whatsappServers   WhatsappServer[]
+  whatsappInstances WhatsappInstance[]
 
   @@index([activeWorkspaceId])
 }
@@ -222,4 +225,100 @@ model PushSubscription {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+// ── Central Multi-WhatsApp (Evolution API, por usuário) ──────────────────────
+
+model WhatsappServer {
+  id        String             @id @default(uuid())
+  userId    String
+  label     String?
+  baseUrl   String             @db.VarChar(512)
+  apiKey    String             @db.Text // criptografada em repouso (lib/crypto)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  user      user               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instances WhatsappInstance[]
+
+  @@index([userId])
+}
+
+model WhatsappInstance {
+  id               String            @id @default(uuid())
+  serverId         String
+  userId           String
+  instanceName     String
+  number           String?
+  profileName      String?
+  connectionStatus String            @default("close") // open | close | connecting
+  webhookSecret    String
+  lastSyncAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  server           WhatsappServer    @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  user             user              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contacts         WhatsappContact[]
+  chats            WhatsappChat[]
+  messages         WhatsappMessage[]
+
+  @@unique([serverId, instanceName])
+  @@index([userId])
+}
+
+model WhatsappContact {
+  id         String           @id @default(uuid())
+  instanceId String
+  remoteJid  String
+  pushName   String?
+  isSaved    Boolean          @default(false)
+  isGroup    Boolean          @default(false)
+  updatedAt  DateTime         @updatedAt
+  instance   WhatsappInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@unique([instanceId, remoteJid])
+  @@index([instanceId])
+}
+
+model WhatsappChat {
+  id                  String            @id @default(uuid())
+  instanceId          String
+  remoteJid           String
+  type                String            @default("person") // person | group
+  name                String?
+  lastMessageAt       DateTime?
+  lastFromMe          Boolean           @default(false)
+  lastPreview         String?           @db.Text
+  unreadCount         Int               @default(0)
+  priority            String            @default("medium") // high | medium | low
+  status              String            @default("pending") // pending | answered | resolved
+  resolvedAt          DateTime?
+  firstPendingAt      DateTime?
+  lastResponseSeconds Int?
+  isMuted             Boolean           @default(false)
+  updatedAt           DateTime          @updatedAt
+  instance            WhatsappInstance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  messages            WhatsappMessage[]
+
+  @@unique([instanceId, remoteJid])
+  @@index([instanceId])
+  @@index([status])
+}
+
+model WhatsappMessage {
+  id         String           @id @default(uuid())
+  instanceId String
+  chatId     String
+  messageId  String
+  remoteJid  String
+  fromMe     Boolean
+  type       String
+  preview    String?          @db.Text
+  timestamp  DateTime
+  createdAt  DateTime         @default(now())
+  instance   WhatsappInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  chat       WhatsappChat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@unique([instanceId, messageId])
+  @@index([chatId])
+  @@index([timestamp])
 }
