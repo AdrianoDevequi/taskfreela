@@ -294,7 +294,9 @@ model WhatsappChat {
   resolvedAt          DateTime?
   firstPendingAt      DateTime?
   lastResponseSeconds Int?
+  slaAlertedAt        DateTime?
   isMuted             Boolean           @default(false)
+  ignored             Boolean           @default(false)
   updatedAt           DateTime          @updatedAt
   instance            WhatsappInstance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   messages            WhatsappMessage[]

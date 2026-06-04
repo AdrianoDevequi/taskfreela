@@ -16,6 +16,8 @@ import { createWhatsappClient, WhatsappClient } from "@/services/whatsapp-client
  */
 
 const BROADCAST_JID = "status@broadcast";
+/** Conversas pendentes sem atividade há mais que isto viram "resolved" automaticamente. */
+export const AUTO_RESOLVE_DAYS = 90;
 
 export function isGroupJid(jid: string): boolean {
     return typeof jid === "string" && jid.endsWith("@g.us");
@@ -269,6 +271,13 @@ export async function syncInstance(instanceId: string): Promise<{ chats: number;
     for (const u of updates) {
         await prisma.whatsappChat.update({ where: { id: u.id }, data: u.data });
     }
+
+    // auto-resolve conversas pendentes muito antigas (> AUTO_RESOLVE_DAYS sem resposta)
+    const staleCutoff = new Date(Date.now() - AUTO_RESOLVE_DAYS * 24 * 60 * 60 * 1000);
+    await prisma.whatsappChat.updateMany({
+        where: { instanceId, status: "pending", lastMessageAt: { lt: staleCutoff } },
+        data: { status: "resolved", resolvedAt: new Date() },
+    });
 
     await prisma.whatsappInstance.update({
         where: { id: instanceId },

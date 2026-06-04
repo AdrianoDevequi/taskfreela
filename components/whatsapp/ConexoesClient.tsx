@@ -18,6 +18,7 @@ import {
     Pencil,
 } from "lucide-react";
 import { WhatsappTabs } from "./WhatsappTabs";
+import { useToast } from "@/components/ui/Toast";
 import {
     addServer,
     updateServer,
@@ -63,6 +64,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export function ConexoesClient({ servers }: { servers: ServerItem[] }) {
     const router = useRouter();
+    const { toast, confirm } = useToast();
     const [adding, setAdding] = useState(false);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [qr, setQr] = useState<{ instanceId: string; image: string | null } | null>(null);
@@ -84,7 +86,7 @@ export function ConexoesClient({ servers }: { servers: ServerItem[] }) {
                     setImportServer({ id: res.data.id, label, baseUrl });
                 }
             } else {
-                alert("❌ " + res.error);
+                toast.error(res.error);
             }
         } finally {
             setAdding(false);
@@ -97,13 +99,13 @@ export function ConexoesClient({ servers }: { servers: ServerItem[] }) {
             const res = await getQrCode(instanceId);
             if (res.success && res.data) {
                 if (res.data.status === "open") {
-                    alert("✅ Essa instância já está conectada.");
+                    toast.info("Essa instância já está conectada.");
                     router.refresh();
                 } else {
                     setQr({ instanceId, image: res.data.qr });
                 }
             } else if (!res.success) {
-                alert("❌ " + res.error);
+                toast.error(res.error);
             }
         } finally {
             setBusyId(null);
@@ -125,9 +127,9 @@ export function ConexoesClient({ servers }: { servers: ServerItem[] }) {
         try {
             const res = await syncInstance(instanceId);
             if (res.success && res.data) {
-                alert(`✅ Sincronizado: ${res.data.chats} conversas, ${res.data.contacts} contatos.`);
+                toast.success(`Sincronizado: ${res.data.chats} conversas, ${res.data.contacts} contatos.`);
             } else if (!res.success) {
-                alert("❌ " + res.error);
+                toast.error(res.error);
             }
             router.refresh();
         } finally {
@@ -136,7 +138,13 @@ export function ConexoesClient({ servers }: { servers: ServerItem[] }) {
     }
 
     async function handleLogout(instanceId: string) {
-        if (!confirm("Desconectar esta instância? Você precisará escanear o QR novamente para reconectar.")) return;
+        const ok = await confirm({
+            title: "Desconectar instância",
+            message: "Você precisará escanear o QR novamente para reconectar.",
+            confirmLabel: "Desconectar",
+            danger: true,
+        });
+        if (!ok) return;
         setBusyId(instanceId);
         try {
             await logoutInstance(instanceId);
@@ -147,7 +155,13 @@ export function ConexoesClient({ servers }: { servers: ServerItem[] }) {
     }
 
     async function handleDeleteInstance(instanceId: string) {
-        if (!confirm("Remover esta instância? As conversas sincronizadas dela serão apagadas do sistema.")) return;
+        const ok = await confirm({
+            title: "Remover instância",
+            message: "As conversas sincronizadas dela serão apagadas do sistema.",
+            confirmLabel: "Remover",
+            danger: true,
+        });
+        if (!ok) return;
         setBusyId(instanceId);
         try {
             await deleteInstance(instanceId);
@@ -158,7 +172,13 @@ export function ConexoesClient({ servers }: { servers: ServerItem[] }) {
     }
 
     async function handleRemoveServer(serverId: string) {
-        if (!confirm("Remover este servidor e todas as suas instâncias do sistema?")) return;
+        const ok = await confirm({
+            title: "Remover servidor",
+            message: "O servidor e todas as suas instâncias serão removidos do sistema.",
+            confirmLabel: "Remover",
+            danger: true,
+        });
+        if (!ok) return;
         setBusyId(serverId);
         try {
             await removeServer(serverId);
@@ -173,9 +193,9 @@ export function ConexoesClient({ servers }: { servers: ServerItem[] }) {
         try {
             const res = await testServer(serverId);
             if (res.success && res.data) {
-                alert(`✅ Conexão OK. ${res.data.instances} instância(s) no servidor.`);
+                toast.success(`Conexão OK. ${res.data.instances} instância(s) no servidor.`);
             } else if (!res.success) {
-                alert("❌ " + res.error);
+                toast.error(res.error);
             }
         } finally {
             setBusyId(null);
@@ -429,6 +449,7 @@ function EditServerModal({
     onClose: () => void;
     onSaved: (found: number) => void;
 }) {
+    const { toast } = useToast();
     const [saving, setSaving] = useState(false);
 
     async function handleSubmit(formData: FormData) {
@@ -438,7 +459,7 @@ function EditServerModal({
             if (res.success) {
                 onSaved(res.data?.found ?? 0);
             } else {
-                alert("❌ " + res.error);
+                toast.error(res.error);
             }
         } finally {
             setSaving(false);
@@ -528,6 +549,7 @@ function ImportInstancesModal({
     onClose: () => void;
     onImported: () => void;
 }) {
+    const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [list, setList] = useState<FetchedInstance[]>([]);
@@ -576,7 +598,7 @@ function ImportInstancesModal({
         try {
             const res = await importInstances(server.id, names);
             if (res.success) onImported();
-            else alert("❌ " + res.error);
+            else toast.error(res.error);
         } finally {
             setImporting(false);
         }
@@ -705,6 +727,7 @@ function NewInstanceModal({
     onClose: () => void;
     onCreated: (data: { instanceId: string; qr: string | null }) => void;
 }) {
+    const { toast } = useToast();
     const [name, setName] = useState("");
     const [creating, setCreating] = useState(false);
     const sanitized = name.trim().replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -717,7 +740,7 @@ function NewInstanceModal({
             if (res.success && res.data) {
                 onCreated(res.data);
             } else if (!res.success) {
-                alert("❌ " + res.error);
+                toast.error(res.error);
             }
         } finally {
             setCreating(false);

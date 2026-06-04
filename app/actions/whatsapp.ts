@@ -484,6 +484,7 @@ export async function listChats(filters: ChatFilters = {}) {
             firstPendingAt: c.firstPendingAt,
             lastResponseSeconds: c.lastResponseSeconds,
             isMuted: c.isMuted,
+            ignored: c.ignored,
         })),
     };
 }
@@ -710,4 +711,77 @@ export async function setChatMuted(chatId: string, muted: boolean): Promise<Acti
         console.error("[whatsapp] setChatMuted:", error);
         return { success: false, error: error?.message || "Erro ao atualizar conversa." };
     }
+}
+
+/** Marca/desmarca uma conversa como ignorada (fora do rastreio de tempo, métricas e alertas). */
+export async function setChatIgnored(chatId: string, ignored: boolean): Promise<ActionResult> {
+    try {
+        const userId = await requireUserId();
+        const chat = await prisma.whatsappChat.findUnique({ where: { id: chatId }, include: { instance: true } });
+        if (!chat || chat.instance.userId !== userId) return { success: false, error: "Conversa não encontrada." };
+        await prisma.whatsappChat.update({ where: { id: chatId }, data: { ignored } });
+        revalidatePath("/whatsapp");
+        return { success: true };
+    } catch (error: any) {
+        console.error("[whatsapp] setChatIgnored:", error);
+        return { success: false, error: error?.message || "Erro ao atualizar conversa." };
+    }
+}
+
+// ── Métricas ─────────────────────────────────────────────────────────────────
+
+export async function getWhatsappMetrics() {
+    const userId = await requireUserId();
+    const instances = await prisma.whatsappInstance.findMany({
+        where: { userId },
+        select: { id: true, instanceName: true, profileName: true },
+    });
+    const instanceIds = instances.map((i) => i.id);
+
+    const empty = {
+        instances: [] as { id: string; label: string }[],
+        totals: { chats: 0, pending: 0, answered: 0, resolved: 0 },
+        pendingByPriority: [] as { priority: string; label: string; count: number }[],
+        pendingByInstance: [] as { label: string; count: number }[],
+        avgResponseSeconds: null as number | null,
+        respondedCount: 0,
+    };
+    if (instanceIds.length === 0) return empty;
+
+    const baseWhere = { instanceId: { in: instanceIds }, ignored: false };
+    const [byStatus, byPriority, byInstance, respAgg, total] = await Promise.all([
+        prisma.whatsappChat.groupBy({ by: ["status"], where: baseWhere, _count: { _all: true } }),
+        prisma.whatsappChat.groupBy({ by: ["priority"], where: { ...baseWhere, status: "pending" }, _count: { _all: true } }),
+        prisma.whatsappChat.groupBy({ by: ["instanceId"], where: { ...baseWhere, status: "pending" }, _count: { _all: true } }),
+        prisma.whatsappChat.aggregate({
+            where: { ...baseWhere, lastResponseSeconds: { not: null } },
+            _avg: { lastResponseSeconds: true },
+            _count: { lastResponseSeconds: true },
+        }),
+        prisma.whatsappChat.count({ where: baseWhere }),
+    ]);
+
+    const statusCount = (s: string) => byStatus.find((x) => x.status === s)?._count._all ?? 0;
+    const labelById = new Map(instances.map((i) => [i.id, i.profileName || i.instanceName]));
+    const prioLabel: Record<string, string> = { high: "Alta", medium: "Média", low: "Baixa" };
+
+    return {
+        instances: instances.map((i) => ({ id: i.id, label: i.profileName || i.instanceName })),
+        totals: {
+            chats: total,
+            pending: statusCount("pending"),
+            answered: statusCount("answered"),
+            resolved: statusCount("resolved"),
+        },
+        pendingByPriority: ["high", "medium", "low"].map((p) => ({
+            priority: p,
+            label: prioLabel[p],
+            count: byPriority.find((x) => x.priority === p)?._count._all ?? 0,
+        })),
+        pendingByInstance: byInstance
+            .map((x) => ({ label: labelById.get(x.instanceId) || "", count: x._count._all }))
+            .sort((a, b) => b.count - a.count),
+        avgResponseSeconds: respAgg._avg.lastResponseSeconds,
+        respondedCount: respAgg._count.lastResponseSeconds,
+    };
 }

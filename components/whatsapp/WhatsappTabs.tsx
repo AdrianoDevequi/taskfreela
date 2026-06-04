@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Inbox, Plug } from "lucide-react";
+import { Inbox, Plug, BarChart3 } from "lucide-react";
 
 const TABS = [
     { href: "/whatsapp", label: "Inbox", icon: Inbox },
+    { href: "/whatsapp/metricas", label: "Métricas", icon: BarChart3 },
     { href: "/whatsapp/conexoes", label: "Conexões", icon: Plug },
 ];
 

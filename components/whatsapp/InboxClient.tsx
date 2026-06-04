@@ -18,15 +18,18 @@ import {
     Mic,
     FileText,
     Download,
+    EyeOff,
 } from "lucide-react";
 import { WhatsappTabs } from "./WhatsappTabs";
 import { Dropdown, MultiDropdown } from "./FilterDropdown";
+import { useToast } from "@/components/ui/Toast";
 import {
     listChats,
     getChatMessages,
     sendReply,
     markChatRead,
     setChatResolved,
+    setChatIgnored,
     getMessageMedia,
     type ChatFilters,
 } from "@/app/actions/whatsapp";
@@ -47,6 +50,7 @@ type Chat = {
     firstPendingAt: string | Date | null;
     lastResponseSeconds: number | null;
     isMuted: boolean;
+    ignored: boolean;
 };
 
 type InstanceLite = { id: string; instanceName: string; profileName: string | null };
@@ -104,6 +108,7 @@ export function InboxClient({
     initialChats: Chat[];
     instances: InstanceLite[];
 }) {
+    const { toast, confirm } = useToast();
     const [chats, setChats] = useState<Chat[]>(initialChats);
     const [filters, setFilters] = useState<ChatFilters>({});
     const [selected, setSelected] = useState<Chat | null>(null);
@@ -154,7 +159,7 @@ export function InboxClient({
                 markChatRead(chat.id).then(refreshList);
             }
         } catch (e: any) {
-            alert("❌ " + (e?.message || "Erro ao abrir conversa."));
+            toast.error(e?.message || "Erro ao abrir conversa.");
         } finally {
             setLoadingMsgs(false);
         }
@@ -163,7 +168,12 @@ export function InboxClient({
     async function handleSend() {
         if (!selected || !reply.trim()) return;
         const text = reply.trim();
-        if (!confirm(`Enviar para ${selected.name || jidNumber(selected.remoteJid)}?\n\n"${text}"`)) return;
+        const ok = await confirm({
+            title: "Enviar mensagem",
+            message: `Enviar para ${selected.name || jidNumber(selected.remoteJid)}?\n\n"${text}"`,
+            confirmLabel: "Enviar",
+        });
+        if (!ok) return;
         setSending(true);
         try {
             const res = await sendReply(selected.id, text);
@@ -173,7 +183,7 @@ export function InboxClient({
                 setMessages(updated.messages as Message[]);
                 refreshList();
             } else {
-                alert("❌ " + res.error);
+                toast.error(res.error);
             }
         } finally {
             setSending(false);
@@ -188,7 +198,14 @@ export function InboxClient({
         }
     }
 
-    const pendingCount = chats.filter((c) => c.status === "pending").length;
+    async function handleIgnore(chat: Chat) {
+        const next = !chat.ignored;
+        await setChatIgnored(chat.id, next);
+        refreshList();
+        if (selected?.id === chat.id) setSelected({ ...chat, ignored: next });
+    }
+
+    const pendingCount = chats.filter((c) => c.status === "pending" && !c.ignored).length;
 
     return (
         <div className="max-w-6xl mx-auto py-6 h-[calc(100vh-3rem)] flex flex-col">
@@ -312,12 +329,17 @@ export function InboxClient({
                                             </div>
                                             <div className="flex items-center gap-2 mt-0.5">
                                                 <span className="text-[10px] text-muted-foreground truncate">{chat.instanceLabel}</span>
-                                                {chat.status === "pending" && (
+                                                {chat.status === "pending" && !chat.ignored && (
                                                     <span className="text-[10px] font-semibold text-red-400 flex items-center gap-1">
                                                         <AlertCircle size={11} /> sem resposta há {fmtDuration(chat.firstPendingAt)}
                                                     </span>
                                                 )}
-                                                {chat.status === "resolved" && (
+                                                {chat.ignored && (
+                                                    <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
+                                                        <EyeOff size={11} /> ignorada
+                                                    </span>
+                                                )}
+                                                {chat.status === "resolved" && !chat.ignored && (
                                                     <span className="text-[10px] font-semibold text-blue-400">resolvida</span>
                                                 )}
                                             </div>
@@ -358,6 +380,15 @@ export function InboxClient({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                            onClick={() => handleIgnore(selected)}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                                selected.ignored ? "bg-amber-500/10 text-amber-400" : "bg-muted hover:bg-muted/70"
+                                            }`}
+                                            title="Ignorar do tempo de resposta e das métricas"
+                                        >
+                                            <EyeOff size={14} /> {selected.ignored ? "Ignorada" : "Ignorar"}
+                                        </button>
                                         <button
                                             onClick={() => handleResolve(selected)}
                                             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
