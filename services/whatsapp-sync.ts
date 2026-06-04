@@ -379,10 +379,14 @@ async function ingestMessage(instanceId: string, m: any): Promise<void> {
         where: { instanceId_remoteJid: { instanceId, remoteJid } },
     });
 
-    // grupos: nunca usar o pushName do remetente como nome do chat; preserva o subject já salvo
+    // Nome do chat:
+    // - grupos: nunca o pushName do remetente; preserva o subject salvo.
+    // - pessoas: o pushName SÓ vale para mensagens recebidas (de entrada); em mensagens
+    //   enviadas por nós (fromMe), o pushName é o NOSSO nome, então não pode virar o nome
+    //   do contato. Preserva o nome já existente nesse caso.
     const name = isGroup
         ? existing?.name || contact?.pushName || null
-        : contact?.pushName || m?.pushName || null;
+        : contact?.pushName || (!fromMe ? m?.pushName || null : null) || existing?.name || null;
 
     // estado do chat + tempo de resposta
     let status: string;
