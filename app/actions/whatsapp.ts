@@ -433,7 +433,7 @@ export async function syncInstance(instanceId: string): Promise<ActionResult<{ c
 export type ChatFilters = {
     instanceIds?: string[];
     type?: "person" | "group" | "unsaved";
-    status?: "pending" | "answered" | "resolved" | "unread";
+    status?: "pending" | "answered" | "resolved" | "unread" | "archived";
     search?: string;
     includeLow?: boolean;
 };
@@ -453,10 +453,16 @@ export async function listChats(filters: ChatFilters = {}) {
     }
     if (filters.type === "person") where.type = "person";
     if (filters.type === "group") where.type = "group";
-    if (filters.status === "pending") where.status = "pending";
-    if (filters.status === "answered") where.status = "answered";
-    if (filters.status === "resolved") where.status = "resolved";
-    if (filters.status === "unread") where.unreadCount = { gt: 0 };
+    // arquivadas só aparecem no filtro "archived"; nos demais, ficam escondidas
+    if (filters.status === "archived") {
+        where.archived = true;
+    } else {
+        where.archived = false;
+        if (filters.status === "pending") where.status = "pending";
+        else if (filters.status === "answered") where.status = "answered";
+        else if (filters.status === "resolved") where.status = "resolved";
+        else if (filters.status === "unread") where.unreadCount = { gt: 0 };
+    }
     if (!filters.includeLow) where.priority = { not: "low" };
     if (filters.search) {
         where.OR = [
@@ -492,6 +498,7 @@ export async function listChats(filters: ChatFilters = {}) {
             lastResponseSeconds: c.lastResponseSeconds,
             isMuted: c.isMuted,
             ignored: c.ignored,
+            archived: c.archived,
         })),
     };
 }
@@ -736,6 +743,26 @@ export async function setChatIgnored(chatId: string, ignored: boolean): Promise<
     }
 }
 
+/** Arquiva/desarquiva uma conversa (some da lista, sai de métricas/alertas, fecha tarefa vinculada). */
+export async function setChatArchived(chatId: string, archived: boolean): Promise<ActionResult> {
+    try {
+        const userId = await requireUserId();
+        const chat = await prisma.whatsappChat.findUnique({ where: { id: chatId }, include: { instance: true } });
+        if (!chat || chat.instance.userId !== userId) return { success: false, error: "Conversa não encontrada." };
+        await prisma.whatsappChat.update({ where: { id: chatId }, data: { archived } });
+        // ao arquivar, fecha a tarefa "Responder" vinculada (se houver)
+        if (archived && chat.taskId) {
+            await prisma.task.updateMany({ where: { id: chat.taskId, status: { not: "DONE" } }, data: { status: "DONE" } });
+            await prisma.whatsappChat.update({ where: { id: chatId }, data: { taskId: null } });
+        }
+        revalidatePath("/whatsapp");
+        return { success: true };
+    } catch (error: any) {
+        console.error("[whatsapp] setChatArchived:", error);
+        return { success: false, error: error?.message || "Erro ao atualizar conversa." };
+    }
+}
+
 // ── Métricas ─────────────────────────────────────────────────────────────────
 
 export async function getWhatsappMetrics() {
@@ -756,7 +783,7 @@ export async function getWhatsappMetrics() {
     };
     if (instanceIds.length === 0) return empty;
 
-    const baseWhere = { instanceId: { in: instanceIds }, ignored: false };
+    const baseWhere = { instanceId: { in: instanceIds }, ignored: false, archived: false };
     const [byStatus, byPriority, byInstance, respAgg, total] = await Promise.all([
         prisma.whatsappChat.groupBy({ by: ["status"], where: baseWhere, _count: { _all: true } }),
         prisma.whatsappChat.groupBy({ by: ["priority"], where: { ...baseWhere, status: "pending" }, _count: { _all: true } }),

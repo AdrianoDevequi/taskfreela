@@ -19,6 +19,7 @@ import {
     FileText,
     Download,
     EyeOff,
+    Archive,
 } from "lucide-react";
 import { WhatsappTabs } from "./WhatsappTabs";
 import { Dropdown, MultiDropdown } from "./FilterDropdown";
@@ -30,6 +31,7 @@ import {
     markChatRead,
     setChatResolved,
     setChatIgnored,
+    setChatArchived,
     getMessageMedia,
     type ChatFilters,
 } from "@/app/actions/whatsapp";
@@ -51,6 +53,7 @@ type Chat = {
     lastResponseSeconds: number | null;
     isMuted: boolean;
     ignored: boolean;
+    archived: boolean;
 };
 
 type InstanceLite = { id: string; instanceName: string; profileName: string | null };
@@ -236,6 +239,16 @@ export function InboxClient({
         if (selected?.id === chat.id) setSelected({ ...chat, ignored: next });
     }
 
+    async function handleArchive(chat: Chat) {
+        const next = !chat.archived;
+        await setChatArchived(chat.id, next);
+        refreshList();
+        if (selected?.id === chat.id) {
+            if (next) setSelected(null);
+            else setSelected({ ...chat, archived: false });
+        }
+    }
+
     const pendingCount = chats.filter((c) => c.status === "pending" && !c.ignored).length;
 
     return (
@@ -297,6 +310,7 @@ export function InboxClient({
                                         { value: "unread", label: "Não lidas" },
                                         { value: "answered", label: "Respondidas" },
                                         { value: "resolved", label: "Resolvidas" },
+                                        { value: "archived", label: "Arquivadas" },
                                     ]}
                                 />
                                 <Dropdown
@@ -370,8 +384,13 @@ export function InboxClient({
                                                         <EyeOff size={11} /> ignorada
                                                     </span>
                                                 )}
-                                                {chat.status === "resolved" && !chat.ignored && (
+                                                {chat.status === "resolved" && !chat.ignored && !chat.archived && (
                                                     <span className="text-[10px] font-semibold text-blue-400">resolvida</span>
+                                                )}
+                                                {chat.archived && (
+                                                    <span className="text-[10px] font-semibold text-blue-400 flex items-center gap-1">
+                                                        <Archive size={11} /> arquivada
+                                                    </span>
                                                 )}
                                             </div>
                                         </div>
@@ -411,6 +430,15 @@ export function InboxClient({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                            onClick={() => handleArchive(selected)}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                                selected.archived ? "bg-blue-500/10 text-blue-400" : "bg-muted hover:bg-muted/70"
+                                            }`}
+                                            title="Arquivar (some da lista)"
+                                        >
+                                            <Archive size={14} /> {selected.archived ? "Arquivada" : "Arquivar"}
+                                        </button>
                                         <button
                                             onClick={() => handleIgnore(selected)}
                                             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${

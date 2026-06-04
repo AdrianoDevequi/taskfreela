@@ -35,7 +35,7 @@ export async function GET(req: Request) {
         // 2) fecha as tarefas "Responder" de conversas que já saíram de pendente
         let tasksClosed = 0;
         const toClose = await prisma.whatsappChat.findMany({
-            where: { taskId: { not: null }, OR: [{ status: { not: "pending" } }, { ignored: true }] },
+            where: { taskId: { not: null }, OR: [{ status: { not: "pending" } }, { ignored: true }, { archived: true }] },
             select: { id: true, taskId: true },
         });
         for (const c of toClose) {
@@ -54,6 +54,7 @@ export async function GET(req: Request) {
                 priority: "high",
                 isMuted: false,
                 ignored: false,
+                archived: false,
                 firstPendingAt: { lt: cutoff },
             },
             include: { instance: { select: { userId: true } } },

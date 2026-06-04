@@ -297,6 +297,7 @@ model WhatsappChat {
   slaAlertedAt        DateTime?
   isMuted             Boolean           @default(false)
   ignored             Boolean           @default(false)
+  archived            Boolean           @default(false)
   taskId              Int?
   updatedAt           DateTime          @updatedAt
   instance            WhatsappInstance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
