@@ -12,6 +12,7 @@ export interface Task {
     recurrencePattern?: string | null;
     recurrenceDays?: string | null;
     createdAt?: Date | string;
+    source?: string | null;
     projectId?: string | null;
     project?: { id: string, name: string, url?: string | null } | null;
     assignedTo?: { id: string, name: string, image: string | null } | null;

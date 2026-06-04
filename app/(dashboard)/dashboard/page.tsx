@@ -5,6 +5,7 @@ import TaskBoard from "@/components/TaskBoard";
 import CreateTaskModal from "@/components/CreateTaskModal";
 import MobileFAB from "@/components/MobileFAB";
 import { UpcomingEventsWidget } from "@/components/UpcomingEventsWidget";
+import { SlaWidget } from "@/components/whatsapp/SlaWidget";
 import { Task } from "@/types";
 import { Plus, Sparkles, Zap, ZapOff, Users, Repeat } from "lucide-react";
 import { useSimpleMode } from "@/app/context/SimpleModeContext";
@@ -231,6 +232,8 @@ export default function Home() {
           </button>
         </div>
       </div>
+
+      <SlaWidget />
 
       <TaskBoard
         tasks={(() => {

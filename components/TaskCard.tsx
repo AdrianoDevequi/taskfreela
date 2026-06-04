@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Task } from "@/types";
-import { Calendar, AlertCircle, Pencil, Trash2, ChevronDown, ChevronUp, Clock, Briefcase, Repeat, Hourglass, BadgeCheck } from "lucide-react";
+import { Calendar, AlertCircle, Pencil, Trash2, ChevronDown, ChevronUp, Clock, Briefcase, Repeat, Hourglass, BadgeCheck, MessageCircle } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSimpleMode } from "@/app/context/SimpleModeContext";
@@ -17,17 +17,20 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
     const dueDate = new Date(task.dueDate);
     const isApproved = task.status === 'APPROVED';
     const isOverdue = isPast(dueDate) && !isToday(dueDate) && task.status !== 'DONE' && !isApproved;
+    const isWhatsapp = task.source === 'whatsapp';
 
     return (
         <div
             onClick={() => onEdit?.(task)}
             className={`
-        group relative p-4 rounded-xl bg-card border transition-all duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer h-full flex flex-col
-        ${isApproved
-                    ? "border-green-500/50 hover:border-green-500 shadow-[0_0_0_1px_rgba(34,197,94,0.15)]"
+        group relative p-4 rounded-xl border transition-all duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer h-full flex flex-col
+        ${isWhatsapp
+                    ? "bg-green-500/5 border-green-500/60 hover:border-green-500 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
+                    : isApproved
+                    ? "bg-card border-green-500/50 hover:border-green-500 shadow-[0_0_0_1px_rgba(34,197,94,0.15)]"
                     : isOverdue
-                        ? "border-destructive/50 hover:border-destructive shadow-[0_0_0_1px_rgba(239,68,68,0.2)]"
-                        : "border-border hover:border-primary/50"
+                        ? "bg-card border-destructive/50 hover:border-destructive shadow-[0_0_0_1px_rgba(239,68,68,0.2)]"
+                        : "bg-card border-border hover:border-primary/50"
                 }
       `}
         >
@@ -100,6 +103,14 @@ export default function TaskCard({ task, onQuickAction, onEdit, onDelete }: Task
                             {format(dueDate, "d 'de' MMM", { locale: ptBR })}
                         </span>
                     </div>
+
+                    {/* WhatsApp Response Badge */}
+                    {isWhatsapp && (
+                        <div className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-green-500/15 text-green-500 border border-green-500/30 shrink-0" title="Responder no WhatsApp">
+                            <MessageCircle size={10} className="shrink-0" />
+                            <span className="hidden sm:inline-block">WhatsApp</span>
+                        </div>
+                    )}
 
                     {/* Project Badge */}
                     {task.project && (() => {

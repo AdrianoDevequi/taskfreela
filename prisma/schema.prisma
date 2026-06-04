@@ -104,6 +104,7 @@ model task {
   assignedToId  String?
   projectId            String?
   originalAssignedToId String?
+  source               String?
   user          user?      @relation("TaskCreator", fields: [userId], references: [id], onDelete: Cascade, map: "Task_userId_fkey")
   assignedTo    user?      @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull, map: "Task_assignedToId_fkey")
   workspace     workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade, map: "Task_workspaceId_fkey")
@@ -299,6 +300,8 @@ model WhatsappChat {
   ignored             Boolean           @default(false)
   archived            Boolean           @default(false)
   taskId              Int?
+  profilePicUrl       String?           @db.Text
+  customName          String?
   updatedAt           DateTime          @updatedAt
   instance            WhatsappInstance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   messages            WhatsappMessage[]

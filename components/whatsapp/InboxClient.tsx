@@ -20,6 +20,7 @@ import {
     Download,
     EyeOff,
     Archive,
+    Pencil,
 } from "lucide-react";
 import { WhatsappTabs } from "./WhatsappTabs";
 import { Dropdown, MultiDropdown } from "./FilterDropdown";
@@ -32,6 +33,7 @@ import {
     setChatResolved,
     setChatIgnored,
     setChatArchived,
+    setChatCustomName,
     getMessageMedia,
     type ChatFilters,
 } from "@/app/actions/whatsapp";
@@ -54,6 +56,8 @@ type Chat = {
     isMuted: boolean;
     ignored: boolean;
     archived: boolean;
+    customName: string | null;
+    profilePicUrl: string | null;
 };
 
 type InstanceLite = { id: string; instanceName: string; profileName: string | null };
@@ -104,6 +108,26 @@ function priorityDot(priority: string): string {
     return "bg-muted-foreground/40";
 }
 
+function ChatAvatar({ url, isGroup, className, iconSize }: { url?: string | null; isGroup: boolean; className: string; iconSize: number }) {
+    const [err, setErr] = useState(false);
+    if (url && !err) {
+        // eslint-disable-next-line @next/next/no-img-element
+        return <img src={url} alt="" onError={() => setErr(true)} className={`${className} object-cover bg-muted`} />;
+    }
+    return (
+        <div className={`${className} bg-muted flex items-center justify-center text-muted-foreground`}>
+            {isGroup ? <Users size={iconSize} /> : <User size={iconSize} />}
+        </div>
+    );
+}
+
+function chatNames(chat: { customName?: string | null; name: string | null; remoteJid: string }) {
+    const original = chat.name || jidNumber(chat.remoteJid);
+    return chat.customName
+        ? { primary: chat.customName, secondary: original }
+        : { primary: original, secondary: null as string | null };
+}
+
 export function InboxClient({
     initialChats,
     instances,
@@ -120,6 +144,7 @@ export function InboxClient({
     const [reply, setReply] = useState("");
     const [sending, setSending] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [editingName, setEditingName] = useState(false);
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
     const selectedRef = useRef(selected);
@@ -189,6 +214,8 @@ export function InboxClient({
         try {
             const res = await getChatMessages(chat.id);
             setMessages(res.messages as Message[]);
+            const pic = (res.chat as any)?.profilePicUrl;
+            if (pic) setSelected((prev) => (prev && prev.id === chat.id ? { ...prev, profilePicUrl: pic } : prev));
             if (chat.unreadCount > 0) {
                 markChatRead(chat.id).then(refreshList);
             }
@@ -349,15 +376,16 @@ export function InboxClient({
                                         }`}
                                     >
                                         <div className="relative shrink-0">
-                                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                                                {chat.type === "group" ? <Users size={18} /> : <User size={18} />}
-                                            </div>
+                                            <ChatAvatar url={chat.profilePicUrl} isGroup={chat.type === "group"} className="w-10 h-10 rounded-full" iconSize={18} />
                                             <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${priorityDot(chat.priority)}`} />
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center justify-between gap-2">
                                                 <span className="font-semibold text-sm truncate">
-                                                    {chat.name || jidNumber(chat.remoteJid)}
+                                                    {chatNames(chat).primary}
+                                                    {chatNames(chat).secondary && (
+                                                        <span className="ml-1 text-[10px] font-normal text-muted-foreground">· {chatNames(chat).secondary}</span>
+                                                    )}
                                                 </span>
                                                 <span className="text-[10px] text-muted-foreground shrink-0">{fmtTime(chat.lastMessageAt)}</span>
                                             </div>
@@ -417,11 +445,23 @@ export function InboxClient({
                                         <button onClick={() => setSelected(null)} className="md:hidden p-1 text-muted-foreground">
                                             <ArrowLeft size={18} />
                                         </button>
-                                        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground shrink-0">
-                                            {selected.type === "group" ? <Users size={16} /> : <User size={16} />}
-                                        </div>
+                                        <ChatAvatar url={selected.profilePicUrl} isGroup={selected.type === "group"} className="w-9 h-9 rounded-full shrink-0" iconSize={16} />
                                         <div className="min-w-0">
-                                            <div className="font-semibold text-sm truncate">{selected.name || jidNumber(selected.remoteJid)}</div>
+                                            <div className="font-semibold text-sm truncate flex items-center gap-1.5">
+                                                <span className="truncate">{chatNames(selected).primary}</span>
+                                                {chatNames(selected).secondary && (
+                                                    <span className="text-[11px] font-normal text-muted-foreground truncate shrink">
+                                                        ({chatNames(selected).secondary})
+                                                    </span>
+                                                )}
+                                                <button
+                                                    onClick={() => setEditingName(true)}
+                                                    className="text-muted-foreground hover:text-foreground shrink-0"
+                                                    title="Nome customizado (aparece só no sistema)"
+                                                >
+                                                    <Pencil size={12} />
+                                                </button>
+                                            </div>
                                             <div className="text-[11px] text-muted-foreground truncate">
                                                 {selected.instanceLabel}
                                                 {selected.lastResponseSeconds != null &&
@@ -506,6 +546,97 @@ export function InboxClient({
                     </div>
                 </div>
             )}
+
+            {editingName && selected && (
+                <CustomNameModal
+                    chat={selected}
+                    onClose={() => setEditingName(false)}
+                    onSaved={(name) => {
+                        setEditingName(false);
+                        setSelected((prev) => (prev ? { ...prev, customName: name || null } : prev));
+                        refreshList();
+                    }}
+                />
+            )}
+        </div>
+    );
+}
+
+function CustomNameModal({
+    chat,
+    onClose,
+    onSaved,
+}: {
+    chat: Chat;
+    onClose: () => void;
+    onSaved: (name: string) => void;
+}) {
+    const [value, setValue] = useState(chat.customName || "");
+    const [saving, setSaving] = useState(false);
+    const original = chat.name || jidNumber(chat.remoteJid);
+
+    async function save() {
+        setSaving(true);
+        try {
+            const res = await setChatCustomName(chat.id, value);
+            if (res.success) onSaved(value.trim());
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <div
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={onClose}
+        >
+            <div
+                className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3 className="text-lg font-bold mb-1">Nome customizado</h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                    Aparece só aqui no sistema. Original: <b className="text-foreground">{original}</b>
+                </p>
+                <input
+                    autoFocus
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                            e.preventDefault();
+                            save();
+                        }
+                    }}
+                    placeholder="Ex.: Cliente João — Projeto X"
+                    className="w-full bg-muted/50 border border-input rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <div className="flex items-center justify-between gap-2 mt-5">
+                    <button
+                        type="button"
+                        onClick={() => setValue("")}
+                        className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+                    >
+                        Limpar
+                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-muted hover:bg-muted/70 transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={save}
+                            disabled={saving}
+                            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                            Salvar
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

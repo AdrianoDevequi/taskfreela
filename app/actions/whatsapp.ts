@@ -499,6 +499,8 @@ export async function listChats(filters: ChatFilters = {}) {
             isMuted: c.isMuted,
             ignored: c.ignored,
             archived: c.archived,
+            customName: c.customName,
+            profilePicUrl: c.profilePicUrl,
         })),
     };
 }
@@ -511,6 +513,7 @@ export async function getChatMessages(chatId: string, skipRemote = false) {
     });
     if (!chat || chat.instance.userId !== userId) throw new Error("Conversa não encontrada.");
 
+    let profilePicUrl = chat.profilePicUrl;
     // lazy load do histórico via Evolution e persiste (best-effort).
     // skipRemote = true no polling em tempo real (lê só do banco, alimentado pelo webhook).
     if (!skipRemote) try {
@@ -545,6 +548,16 @@ export async function getChatMessages(chatId: string, skipRemote = false) {
         if (rows.length) {
             await prisma.whatsappMessage.createMany({ data: rows, skipDuplicates: true });
         }
+
+        // foto de perfil — busca uma vez e cacheia (só conversas individuais)
+        if (!chat.profilePicUrl && chat.type === "person") {
+            const picRes = await client.fetchProfilePictureUrl(chat.instance.instanceName, chat.remoteJid.split("@")[0]);
+            const url = picRes.data?.profilePictureUrl || picRes.data?.url || null;
+            if (url) {
+                profilePicUrl = url;
+                await prisma.whatsappChat.update({ where: { id: chat.id }, data: { profilePicUrl: url } });
+            }
+        }
     } catch (error) {
         console.error("[whatsapp] getChatMessages lazy load:", error);
     }
@@ -559,6 +572,8 @@ export async function getChatMessages(chatId: string, skipRemote = false) {
         chat: {
             id: chat.id,
             name: chat.name,
+            customName: chat.customName,
+            profilePicUrl,
             remoteJid: chat.remoteJid,
             type: chat.type,
             status: chat.status,
@@ -743,6 +758,22 @@ export async function setChatIgnored(chatId: string, ignored: boolean): Promise<
     }
 }
 
+/** Define/limpa um nome customizado da conversa (aparece só no sistema; o original fica menor). */
+export async function setChatCustomName(chatId: string, customName: string): Promise<ActionResult> {
+    try {
+        const userId = await requireUserId();
+        const chat = await prisma.whatsappChat.findUnique({ where: { id: chatId }, include: { instance: true } });
+        if (!chat || chat.instance.userId !== userId) return { success: false, error: "Conversa não encontrada." };
+        const trimmed = (customName || "").trim();
+        await prisma.whatsappChat.update({ where: { id: chatId }, data: { customName: trimmed || null } });
+        revalidatePath("/whatsapp");
+        return { success: true };
+    } catch (error: any) {
+        console.error("[whatsapp] setChatCustomName:", error);
+        return { success: false, error: error?.message || "Erro ao atualizar conversa." };
+    }
+}
+
 /** Arquiva/desarquiva uma conversa (some da lista, sai de métricas/alertas, fecha tarefa vinculada). */
 export async function setChatArchived(chatId: string, archived: boolean): Promise<ActionResult> {
     try {
@@ -818,5 +849,43 @@ export async function getWhatsappMetrics() {
             .sort((a, b) => b.count - a.count),
         avgResponseSeconds: respAgg._avg.lastResponseSeconds,
         respondedCount: respAgg._count.lastResponseSeconds,
+    };
+}
+
+/** Resumo curto de SLA do WhatsApp para a dashboard. */
+export async function getSlaSummary() {
+    const userId = await requireUserId();
+    const instances = await prisma.whatsappInstance.findMany({ where: { userId }, select: { id: true } });
+    const ids = instances.map((i) => i.id);
+
+    const empty = {
+        hasInstances: false,
+        pending: 0,
+        pendingHigh: 0,
+        oldestSeconds: null as number | null,
+        oldestName: null as string | null,
+        openTasks: 0,
+    };
+    if (ids.length === 0) return empty;
+
+    const baseWhere = { instanceId: { in: ids }, ignored: false, archived: false };
+    const [pending, pendingHigh, oldest, openTasks] = await Promise.all([
+        prisma.whatsappChat.count({ where: { ...baseWhere, status: "pending" } }),
+        prisma.whatsappChat.count({ where: { ...baseWhere, status: "pending", priority: "high" } }),
+        prisma.whatsappChat.findFirst({
+            where: { ...baseWhere, status: "pending", priority: "high", firstPendingAt: { not: null } },
+            orderBy: { firstPendingAt: "asc" },
+            select: { firstPendingAt: true, name: true, customName: true },
+        }),
+        prisma.task.count({ where: { assignedToId: userId, source: "whatsapp", status: { not: "DONE" } } }),
+    ]);
+
+    return {
+        hasInstances: true,
+        pending,
+        pendingHigh,
+        oldestSeconds: oldest?.firstPendingAt ? Math.round((Date.now() - oldest.firstPendingAt.getTime()) / 1000) : null,
+        oldestName: oldest?.customName || oldest?.name || null,
+        openTasks,
     };
 }

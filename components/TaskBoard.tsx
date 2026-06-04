@@ -17,7 +17,10 @@ interface TaskBoardProps {
 export default function TaskBoard({ tasks, onTaskMove, onQuickAction, onEdit, onDelete }: TaskBoardProps) {
     // Separate tasks by status (ensure tasks is an array)
     const safeTasks = Array.isArray(tasks) ? tasks : [];
-    const todoTasks = safeTasks.filter(t => t.status === 'TODO' || t.status === 'PENDING_APPROVAL');
+    const todoTasks = safeTasks
+        .filter(t => t.status === 'TODO' || t.status === 'PENDING_APPROVAL')
+        // tarefas de resposta do WhatsApp sempre primeiro (sort estável mantém o resto)
+        .sort((a, b) => (b.source === 'whatsapp' ? 1 : 0) - (a.source === 'whatsapp' ? 1 : 0));
     const inProgressTasks = safeTasks.filter(t => t.status === 'IN_PROGRESS');
     const doneTasks = safeTasks
         .filter(t => t.status === 'DONE' || t.status === 'APPROVED')

@@ -169,6 +169,11 @@ export class WhatsappClient {
         });
     }
 
+    /** POST /chat/fetchProfilePictureUrl/{instance} — URL da foto de perfil de um número/jid. */
+    fetchProfilePictureUrl(instanceName: string, number: string) {
+        return this.request("POST", `/chat/fetchProfilePictureUrl/${encodeURIComponent(instanceName)}`, { number });
+    }
+
     /** POST /chat/getBase64FromMediaMessage/{instance} — baixa a mídia (base64) de uma mensagem. */
     getBase64FromMediaMessage(
         instanceName: string,

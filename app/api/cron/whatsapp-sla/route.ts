@@ -99,6 +99,7 @@ export async function GET(req: Request) {
                         dueDate,
                         status: "TODO",
                         isMandatory: true,
+                        source: "whatsapp",
                         userId,
                         assignedToId: userId,
                         workspaceId: user.activeWorkspaceId || undefined,
