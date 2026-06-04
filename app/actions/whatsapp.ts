@@ -496,7 +496,7 @@ export async function listChats(filters: ChatFilters = {}) {
     };
 }
 
-export async function getChatMessages(chatId: string) {
+export async function getChatMessages(chatId: string, skipRemote = false) {
     const userId = await requireUserId();
     const chat = await prisma.whatsappChat.findUnique({
         where: { id: chatId },
@@ -504,8 +504,9 @@ export async function getChatMessages(chatId: string) {
     });
     if (!chat || chat.instance.userId !== userId) throw new Error("Conversa não encontrada.");
 
-    // lazy load do histórico via Evolution e persiste (best-effort)
-    try {
+    // lazy load do histórico via Evolution e persiste (best-effort).
+    // skipRemote = true no polling em tempo real (lê só do banco, alimentado pelo webhook).
+    if (!skipRemote) try {
         const client = createWhatsappClient({
             baseUrl: chat.instance.server.baseUrl,
             apiKey: decrypt(chat.instance.server.apiKey),

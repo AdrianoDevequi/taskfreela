@@ -119,7 +119,10 @@ export function InboxClient({
     const [refreshing, setRefreshing] = useState(false);
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
+    const selectedRef = useRef(selected);
+    selectedRef.current = selected;
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
+    const autoOpenedRef = useRef(false);
 
     const refreshList = useCallback(async () => {
         try {
@@ -136,13 +139,41 @@ export function InboxClient({
         refreshList().finally(() => setRefreshing(false));
     }, [filters, refreshList]);
 
-    // polling
+    // polling — lista + (se houver conversa aberta) mensagens novas em tempo real.
+    // Usa skipRemote: lê só do banco, que é alimentado pelo webhook em tempo real.
     useEffect(() => {
-        const id = setInterval(() => {
+        const id = setInterval(async () => {
             refreshList();
+            const sel = selectedRef.current;
+            if (!sel) return;
+            try {
+                const res = await getChatMessages(sel.id, true);
+                const next = res.messages as Message[];
+                setMessages((prev) => {
+                    const changed =
+                        next.length !== prev.length ||
+                        (next.length > 0 && prev.length > 0 && next[next.length - 1].id !== prev[prev.length - 1].id);
+                    return changed ? next : prev;
+                });
+            } catch {
+                /* ignore poll errors */
+            }
         }, POLL_MS);
         return () => clearInterval(id);
     }, [refreshList]);
+
+    // deep link: /whatsapp?chat=<id> abre a conversa automaticamente
+    useEffect(() => {
+        if (autoOpenedRef.current || selected) return;
+        const chatId = new URLSearchParams(window.location.search).get("chat");
+        if (!chatId) return;
+        const chat = chats.find((c) => c.id === chatId);
+        if (chat) {
+            autoOpenedRef.current = true;
+            openChat(chat);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [chats]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

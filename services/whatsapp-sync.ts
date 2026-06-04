@@ -417,6 +417,15 @@ async function ingestMessage(instanceId: string, m: any): Promise<void> {
         },
     });
 
+    // ao responder, fecha a tarefa "Responder" vinculada (se houver)
+    if (fromMe && existing?.taskId) {
+        await prisma.task.updateMany({
+            where: { id: existing.taskId, status: { not: "DONE" } },
+            data: { status: "DONE" },
+        });
+        await prisma.whatsappChat.update({ where: { id: chat.id }, data: { taskId: null } });
+    }
+
     if (messageId) {
         await prisma.whatsappMessage.upsert({
             where: { instanceId_messageId: { instanceId, messageId } },

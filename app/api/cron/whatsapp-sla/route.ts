@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { pushService } from "@/services/push";
+import { evolutionService } from "@/services/evolution";
 import { AUTO_RESOLVE_DAYS } from "@/services/whatsapp-sync";
 
 /**
@@ -24,14 +25,30 @@ export async function GET(req: Request) {
     const human = minutes >= 60 ? `${Math.floor(minutes / 60)}h` : `${minutes}min`;
 
     try {
-        // auto-resolve conversas pendentes muito antigas (> AUTO_RESOLVE_DAYS sem resposta)
+        // 1) auto-resolve conversas pendentes muito antigas (> AUTO_RESOLVE_DAYS sem resposta)
         const staleCutoff = new Date(Date.now() - AUTO_RESOLVE_DAYS * 24 * 60 * 60 * 1000);
         const autoResolved = await prisma.whatsappChat.updateMany({
             where: { status: "pending", lastMessageAt: { lt: staleCutoff } },
             data: { status: "resolved", resolvedAt: new Date() },
         });
 
-        const chats = await prisma.whatsappChat.findMany({
+        // 2) fecha as tarefas "Responder" de conversas que já saíram de pendente
+        let tasksClosed = 0;
+        const toClose = await prisma.whatsappChat.findMany({
+            where: { taskId: { not: null }, OR: [{ status: { not: "pending" } }, { ignored: true }] },
+            select: { id: true, taskId: true },
+        });
+        for (const c of toClose) {
+            const upd = await prisma.task.updateMany({
+                where: { id: c.taskId!, status: { not: "DONE" } },
+                data: { status: "DONE" },
+            });
+            await prisma.whatsappChat.update({ where: { id: c.id }, data: { taskId: null } });
+            tasksClosed += upd.count;
+        }
+
+        // 3) conversas pendentes elegíveis (contatos salvos, individuais, além do limite)
+        const pending = await prisma.whatsappChat.findMany({
             where: {
                 status: "pending",
                 priority: "high",
@@ -42,49 +59,95 @@ export async function GET(req: Request) {
             include: { instance: { select: { userId: true } } },
         });
 
-        // só alerta se ainda não alertou esta espera (slaAlertedAt anterior ao início da pendência)
-        const eligible = chats.filter(
-            (c) => !c.slaAlertedAt || (c.firstPendingAt != null && c.slaAlertedAt < c.firstPendingAt)
-        );
-
-        const byUser = new Map<string, typeof eligible>();
-        for (const c of eligible) {
+        const byUser = new Map<string, typeof pending>();
+        for (const c of pending) {
             const uid = c.instance.userId;
             if (!byUser.has(uid)) byUser.set(uid, []);
             byUser.get(uid)!.push(c);
         }
 
+        const dueDate = new Date();
+        dueDate.setHours(23, 59, 59, 999);
+        const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+
+        let tasksCreated = 0;
         let usersNotified = 0;
         let chatsAlerted = 0;
 
         for (const [userId, list] of byUser) {
-            const count = list.length;
-            const first = list[0];
-            const body =
-                count === 1
-                    ? `${first.name || first.remoteJid.split("@")[0]} aguarda resposta há mais de ${human}.`
-                    : `${count} contatos salvos aguardam resposta há mais de ${human}.`;
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { name: true, whatsapp: true, activeWorkspaceId: true },
+            });
+            if (!user) continue;
+
+            // cria a tarefa "Responder [Nome]" para cada pendente sem tarefa aberta
+            for (const c of list) {
+                let hasOpenTask = false;
+                if (c.taskId) {
+                    const t = await prisma.task.findUnique({ where: { id: c.taskId }, select: { status: true } });
+                    hasOpenTask = !!t && t.status !== "DONE";
+                }
+                if (hasOpenTask) continue;
+
+                const name = c.name || c.remoteJid.split("@")[0];
+                const task = await prisma.task.create({
+                    data: {
+                        title: `Responder ${name}`,
+                        description: `💬 Conversa no WhatsApp sem resposta há mais de ${human}.\n\nAbrir conversa: https://www.taskfreela.com.br/whatsapp?chat=${c.id}`,
+                        dueDate,
+                        status: "TODO",
+                        isMandatory: true,
+                        userId,
+                        assignedToId: userId,
+                        workspaceId: user.activeWorkspaceId || undefined,
+                    },
+                });
+                await prisma.whatsappChat.update({ where: { id: c.id }, data: { taskId: task.id } });
+                tasksCreated++;
+            }
+
+            // cobrança no WhatsApp/push: só dispara quando há conversa nova (anti-spam por espera)
+            const fresh = list.filter(
+                (c) => !c.slaAlertedAt || (c.firstPendingAt != null && c.slaAlertedAt < c.firstPendingAt)
+            );
+            if (fresh.length === 0) continue;
+
+            const namesList = list
+                .slice(0, 10)
+                .map((c) => `• ${c.name || c.remoteJid.split("@")[0]}`)
+                .join("\n");
 
             await pushService.sendToUser(userId, {
                 title: "WhatsApp: respostas pendentes ⏰",
-                body,
+                body: `${list.length} contato(s) salvo(s) aguardam resposta há +${human}.`,
                 url: "https://www.taskfreela.com.br/whatsapp",
             });
 
+            if (user.whatsapp && settings?.instanceName) {
+                const msg =
+                    `⏰ *Respostas pendentes no WhatsApp*\n\n` +
+                    `Você tem *${list.length}* conversa(s) sem resposta há mais de ${human}:\n${namesList}\n\n` +
+                    `Responda assim que puder 👉 https://www.taskfreela.com.br/whatsapp`;
+                await evolutionService.sendText(settings.instanceName, user.whatsapp, msg).catch(() => {});
+            }
+
             await prisma.whatsappChat.updateMany({
-                where: { id: { in: list.map((c) => c.id) } },
+                where: { id: { in: fresh.map((c) => c.id) } },
                 data: { slaAlertedAt: new Date() },
             });
 
             usersNotified++;
-            chatsAlerted += count;
+            chatsAlerted += fresh.length;
         }
 
         return NextResponse.json({
             success: true,
             minutes,
             autoResolved: autoResolved.count,
-            scanned: chats.length,
+            tasksClosed,
+            tasksCreated,
+            scanned: pending.length,
             usersNotified,
             chatsAlerted,
         });
