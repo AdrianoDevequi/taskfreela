@@ -130,6 +130,50 @@ function chunk<T>(arr: T[], size: number): T[][] {
     return out;
 }
 
+/**
+ * Busca fotos de perfil em paralelo para chats individuais ainda não tentados
+ * (profilePicUrl IS NULL). Cap=50 simultâneos, timeout 5s por chamada, deadline
+ * total de ~15s. Quem não tem foto fica com "" (já tentado).
+ */
+export async function fetchProfilePicsInBatch(
+    client: WhatsappClient,
+    instanceName: string,
+    instanceId: string,
+    opts: { take?: number; concurrency?: number; deadlineMs?: number } = {}
+): Promise<{ tried: number; got: number }> {
+    const take = opts.take ?? 200;
+    const concurrency = opts.concurrency ?? 50;
+    const deadline = Date.now() + (opts.deadlineMs ?? 15_000);
+
+    const need = await prisma.whatsappChat.findMany({
+        where: { instanceId, type: "person", profilePicUrl: null, archived: false },
+        select: { id: true, remoteJid: true, priority: true },
+        take,
+    });
+    if (!need.length) return { tried: 0, got: 0 };
+    const rank: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    need.sort((a, b) => (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3));
+
+    let i = 0;
+    let got = 0;
+    async function worker() {
+        while (i < need.length && Date.now() < deadline) {
+            const me = i++;
+            const c = need[me];
+            try {
+                const res = await client.fetchProfilePictureUrl(instanceName, c.remoteJid.split("@")[0]);
+                const url = (res.success && (res.data?.profilePictureUrl || res.data?.url)) || "";
+                await prisma.whatsappChat.update({ where: { id: c.id }, data: { profilePicUrl: url } });
+                if (url) got++;
+            } catch {
+                // ignora; tenta de novo em sync futuro (mantém null)
+            }
+        }
+    }
+    await Promise.all(Array.from({ length: Math.min(concurrency, need.length) }, () => worker()));
+    return { tried: i, got };
+}
+
 type ChatUpsertRow = {
     id: string;
     instanceId: string;
@@ -292,6 +336,11 @@ export async function syncInstance(instanceId: string): Promise<{ chats: number;
     }
 
     await bulkUpsertChats(rows);
+
+    // 4) Fotos de perfil em LOTE — busca p/ chats individuais ainda não tentados.
+    // Quem não tem foto fica com "" (já tentado), pra não tentar de novo.
+    // Bench: cap=50 + timeout 5s/foto → ~80 fotos em ~6s.
+    await fetchProfilePicsInBatch(client, instance.instanceName, instanceId);
 
     // auto-resolve conversas pendentes muito antigas (> AUTO_RESOLVE_DAYS sem resposta)
     const staleCutoff = new Date(Date.now() - AUTO_RESOLVE_DAYS * 24 * 60 * 60 * 1000);

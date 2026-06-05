@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { pushService } from "@/services/push";
 import { evolutionService } from "@/services/evolution";
-import { AUTO_RESOLVE_DAYS } from "@/services/whatsapp-sync";
+import { AUTO_RESOLVE_DAYS, fetchProfilePicsInBatch, getInstanceWithClient } from "@/services/whatsapp-sync";
 
 /**
  * Alerta de SLA: avisa (push) quando contatos SALVOS (prioridade alta, individuais)
@@ -143,10 +143,36 @@ export async function GET(req: Request) {
             chatsAlerted += fresh.length;
         }
 
+        // 4) Backfill de fotos de perfil — todas as instâncias em PARALELO
+        // (cada uma tem cap 25 simultâneos e janela de 12s; total cabe em 30s).
+        const connectedInstances = await prisma.whatsappInstance.findMany({
+            where: { connectionStatus: "open" },
+            select: { id: true },
+        });
+        const picResults = await Promise.all(
+            connectedInstances.map(async (inst) => {
+                try {
+                    const ctx = await getInstanceWithClient(inst.id);
+                    if (!ctx) return { tried: 0, got: 0 };
+                    return await fetchProfilePicsInBatch(ctx.client, ctx.instance.instanceName, inst.id, {
+                        take: 80,
+                        concurrency: 25,
+                        deadlineMs: 12_000,
+                    });
+                } catch {
+                    return { tried: 0, got: 0 };
+                }
+            })
+        );
+        const picsTried = picResults.reduce((s, r) => s + r.tried, 0);
+        const picsGot = picResults.reduce((s, r) => s + r.got, 0);
+
         return NextResponse.json({
             success: true,
             minutes,
             autoResolved: autoResolved.count,
+            picsTried,
+            picsGot,
             tasksClosed,
             tasksCreated,
             scanned: pending.length,

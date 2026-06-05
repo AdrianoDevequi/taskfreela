@@ -51,14 +51,15 @@ export class WhatsappClient {
     private async request<T = any>(
         method: string,
         path: string,
-        body?: unknown
+        body?: unknown,
+        opts?: { timeoutMs?: number }
     ): Promise<EvolutionResult<T>> {
         if (!this.baseUrl || !this.apiKey) {
             return { success: false, error: "Servidor Evolution não configurado (URL/chave ausente)." };
         }
 
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+        const timeout = setTimeout(() => controller.abort(), opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 
         try {
             const response = await fetch(`${this.baseUrl}${path}`, {
@@ -170,8 +171,8 @@ export class WhatsappClient {
     }
 
     /** POST /chat/fetchProfilePictureUrl/{instance} — URL da foto de perfil de um número/jid. */
-    fetchProfilePictureUrl(instanceName: string, number: string) {
-        return this.request("POST", `/chat/fetchProfilePictureUrl/${encodeURIComponent(instanceName)}`, { number });
+    fetchProfilePictureUrl(instanceName: string, number: string, timeoutMs = 5000) {
+        return this.request("POST", `/chat/fetchProfilePictureUrl/${encodeURIComponent(instanceName)}`, { number }, { timeoutMs });
     }
 
     /** POST /chat/getBase64FromMediaMessage/{instance} — baixa a mídia (base64) de uma mensagem. */
