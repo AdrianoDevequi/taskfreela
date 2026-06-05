@@ -302,6 +302,8 @@ model WhatsappChat {
   taskId              Int?
   profilePicUrl       String?           @db.Text
   customName          String?
+  pinnedAt            DateTime?
+  color               String?
   updatedAt           DateTime          @updatedAt
   instance            WhatsappInstance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   messages            WhatsappMessage[]

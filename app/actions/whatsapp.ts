@@ -436,6 +436,8 @@ export type ChatFilters = {
     status?: "pending" | "answered" | "resolved" | "unread" | "archived";
     search?: string;
     includeLow?: boolean;
+    /** Se true (default), fixadas aparecem no topo. Se false, ordena só por mais recente. */
+    pinnedOnTop?: boolean;
 };
 
 export async function listChats(filters: ChatFilters = {}) {
@@ -472,9 +474,12 @@ export async function listChats(filters: ChatFilters = {}) {
         ];
     }
 
+    const pinnedOnTop = filters.pinnedOnTop !== false; // default true
     const chats = await prisma.whatsappChat.findMany({
         where,
-        orderBy: { lastMessageAt: "desc" },
+        orderBy: pinnedOnTop
+            ? [{ pinnedAt: "desc" }, { lastMessageAt: "desc" }]
+            : [{ lastMessageAt: "desc" }],
         take: 200,
     });
 
@@ -501,6 +506,8 @@ export async function listChats(filters: ChatFilters = {}) {
             archived: c.archived,
             customName: c.customName,
             profilePicUrl: c.profilePicUrl,
+            pinnedAt: c.pinnedAt,
+            color: c.color,
         })),
     };
 }
@@ -754,6 +761,40 @@ export async function setChatIgnored(chatId: string, ignored: boolean): Promise<
         return { success: true };
     } catch (error: any) {
         console.error("[whatsapp] setChatIgnored:", error);
+        return { success: false, error: error?.message || "Erro ao atualizar conversa." };
+    }
+}
+
+/** Fixa/desafixa a conversa no topo da lista (quando o toggle "Fixadas no topo" está ligado). */
+export async function setChatPinned(chatId: string, pinned: boolean): Promise<ActionResult> {
+    try {
+        const userId = await requireUserId();
+        const chat = await prisma.whatsappChat.findUnique({ where: { id: chatId }, include: { instance: true } });
+        if (!chat || chat.instance.userId !== userId) return { success: false, error: "Conversa não encontrada." };
+        await prisma.whatsappChat.update({ where: { id: chatId }, data: { pinnedAt: pinned ? new Date() : null } });
+        revalidatePath("/whatsapp");
+        return { success: true };
+    } catch (error: any) {
+        console.error("[whatsapp] setChatPinned:", error);
+        return { success: false, error: error?.message || "Erro ao atualizar conversa." };
+    }
+}
+
+const CHAT_COLORS = new Set(["", "red", "orange", "amber", "green", "blue", "purple"]);
+
+/** Define/limpa a cor (etiqueta) da conversa. Valor "" limpa. */
+export async function setChatColor(chatId: string, color: string): Promise<ActionResult> {
+    try {
+        const userId = await requireUserId();
+        const chat = await prisma.whatsappChat.findUnique({ where: { id: chatId }, include: { instance: true } });
+        if (!chat || chat.instance.userId !== userId) return { success: false, error: "Conversa não encontrada." };
+        const c = (color || "").trim();
+        if (!CHAT_COLORS.has(c)) return { success: false, error: "Cor inválida." };
+        await prisma.whatsappChat.update({ where: { id: chatId }, data: { color: c || null } });
+        revalidatePath("/whatsapp");
+        return { success: true };
+    } catch (error: any) {
+        console.error("[whatsapp] setChatColor:", error);
         return { success: false, error: error?.message || "Erro ao atualizar conversa." };
     }
 }

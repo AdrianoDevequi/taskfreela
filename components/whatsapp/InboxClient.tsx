@@ -21,6 +21,9 @@ import {
     EyeOff,
     Archive,
     Pencil,
+    Pin,
+    PinOff,
+    Tag,
 } from "lucide-react";
 import { WhatsappTabs } from "./WhatsappTabs";
 import { Dropdown, MultiDropdown } from "./FilterDropdown";
@@ -34,6 +37,8 @@ import {
     setChatIgnored,
     setChatArchived,
     setChatCustomName,
+    setChatPinned,
+    setChatColor,
     getMessageMedia,
     type ChatFilters,
 } from "@/app/actions/whatsapp";
@@ -58,6 +63,8 @@ type Chat = {
     archived: boolean;
     customName: string | null;
     profilePicUrl: string | null;
+    pinnedAt: string | Date | null;
+    color: string | null;
 };
 
 type InstanceLite = { id: string; instanceName: string; profileName: string | null };
@@ -79,7 +86,8 @@ function hasActiveFilters(f: ChatFilters): boolean {
             f.status ||
             f.type ||
             f.search ||
-            f.includeLow
+            f.includeLow ||
+            f.pinnedOnTop === false
     );
 }
 
@@ -132,6 +140,18 @@ function ChatAvatar({ url, isGroup, className, iconSize }: { url?: string | null
     );
 }
 
+const COLOR_PALETTE: { value: string; label: string; bg: string; border: string }[] = [
+    { value: "red", label: "Importante", bg: "bg-red-500", border: "border-red-500" },
+    { value: "orange", label: "Urgente", bg: "bg-orange-500", border: "border-orange-500" },
+    { value: "amber", label: "Atenção", bg: "bg-amber-500", border: "border-amber-500" },
+    { value: "green", label: "OK", bg: "bg-green-500", border: "border-green-500" },
+    { value: "blue", label: "Acompanhar", bg: "bg-blue-500", border: "border-blue-500" },
+    { value: "purple", label: "Pessoal", bg: "bg-purple-500", border: "border-purple-500" },
+];
+function colorClasses(value: string | null) {
+    return COLOR_PALETTE.find((c) => c.value === value);
+}
+
 function chatNames(chat: { customName?: string | null; name: string | null; remoteJid: string }) {
     const original = chat.name || jidNumber(chat.remoteJid);
     return chat.customName
@@ -156,6 +176,7 @@ export function InboxClient({
     const [sending, setSending] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [editingName, setEditingName] = useState(false);
+    const [colorPickerOpen, setColorPickerOpen] = useState(false);
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
     const selectedRef = useRef(selected);
@@ -302,6 +323,21 @@ export function InboxClient({
         if (selected?.id === chat.id) setSelected({ ...chat, ignored: next });
     }
 
+    async function handlePin(chat: Chat) {
+        const willPin = !chat.pinnedAt;
+        await setChatPinned(chat.id, willPin);
+        refreshList();
+        if (selected?.id === chat.id) {
+            setSelected({ ...chat, pinnedAt: willPin ? new Date().toISOString() : null });
+        }
+    }
+
+    async function handleColor(chat: Chat, color: string) {
+        await setChatColor(chat.id, color);
+        refreshList();
+        if (selected?.id === chat.id) setSelected({ ...chat, color: color || null });
+    }
+
     async function handleArchive(chat: Chat) {
         const next = !chat.archived;
         await setChatArchived(chat.id, next);
@@ -393,6 +429,14 @@ export function InboxClient({
                                     />
                                     Não salvos
                                 </label>
+                                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer px-2 py-1.5">
+                                    <input
+                                        type="checkbox"
+                                        checked={filters.pinnedOnTop !== false}
+                                        onChange={(e) => setFilters((f) => ({ ...f, pinnedOnTop: e.target.checked ? undefined : false }))}
+                                    />
+                                    Fixadas no topo
+                                </label>
                                 {hasActiveFilters(filters) && (
                                     <button
                                         onClick={() => setFilters({})}
@@ -412,14 +456,22 @@ export function InboxClient({
                                     Nenhuma conversa. Sincronize uma instância em Conexões.
                                 </div>
                             ) : (
-                                chats.map((chat) => (
+                                chats.map((chat) => {
+                                    const color = colorClasses(chat.color);
+                                    return (
                                     <button
                                         key={chat.id}
                                         onClick={() => openChat(chat)}
-                                        className={`w-full text-left px-3 py-3 border-b border-border/60 hover:bg-muted/40 transition-colors flex gap-3 ${
+                                        className={`relative w-full text-left px-3 py-3 border-b border-border/60 hover:bg-muted/40 transition-colors flex gap-3 ${
                                             selected?.id === chat.id ? "bg-muted/60" : ""
-                                        }`}
+                                        } ${color ? `border-l-4 ${color.border} pl-2` : ""}`}
                                     >
+                                        {chat.pinnedAt && (
+                                            <Pin
+                                                size={11}
+                                                className="absolute top-1.5 right-2 text-primary fill-primary/40 -rotate-45"
+                                            />
+                                        )}
                                         <div className="relative shrink-0">
                                             <ChatAvatar url={chat.profilePicUrl} isGroup={chat.type === "group"} className="w-10 h-10 rounded-full" iconSize={18} />
                                             <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${priorityDot(chat.priority)}`} />
@@ -468,7 +520,8 @@ export function InboxClient({
                                             </div>
                                         </div>
                                     </button>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </div>
@@ -515,6 +568,58 @@ export function InboxClient({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                            onClick={() => handlePin(selected)}
+                                            className={`p-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                                selected.pinnedAt ? "bg-primary/10 text-primary" : "bg-muted hover:bg-muted/70"
+                                            }`}
+                                            title={selected.pinnedAt ? "Desafixar" : "Fixar no topo"}
+                                        >
+                                            {selected.pinnedAt ? <PinOff size={14} /> : <Pin size={14} />}
+                                        </button>
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => setColorPickerOpen((v) => !v)}
+                                                className={`p-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                                    selected.color ? "" : "bg-muted hover:bg-muted/70"
+                                                }`}
+                                                style={selected.color ? { backgroundColor: `var(--${selected.color}-500, transparent)` } : undefined}
+                                                title="Marcar com cor / etiqueta"
+                                            >
+                                                {selected.color ? (
+                                                    <span className={`w-3.5 h-3.5 rounded-full block ${colorClasses(selected.color)?.bg || ""}`} />
+                                                ) : (
+                                                    <Tag size={14} />
+                                                )}
+                                            </button>
+                                            {colorPickerOpen && (
+                                                <div className="absolute right-0 top-full mt-1 z-30 bg-card border border-border rounded-xl shadow-xl p-2 w-48">
+                                                    <div className="grid grid-cols-3 gap-1">
+                                                        {COLOR_PALETTE.map((c) => (
+                                                            <button
+                                                                key={c.value}
+                                                                onClick={() => { handleColor(selected, c.value); setColorPickerOpen(false); }}
+                                                                className={`flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-muted ${
+                                                                    selected.color === c.value ? "ring-2 ring-primary" : ""
+                                                                }`}
+                                                                title={c.label}
+                                                            >
+                                                                <span className={`w-4 h-4 rounded-full ${c.bg}`} />
+                                                                <span className="text-[9px] text-muted-foreground">{c.label}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    {selected.color && (
+                                                        <button
+                                                            onClick={() => { handleColor(selected, ""); setColorPickerOpen(false); }}
+                                                            className="w-full mt-2 text-[10px] font-semibold text-muted-foreground hover:text-foreground py-1"
+                                                        >
+                                                            Remover etiqueta
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                         <button
                                             onClick={() => handleArchive(selected)}
                                             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
