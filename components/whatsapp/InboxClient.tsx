@@ -87,7 +87,8 @@ function hasActiveFilters(f: ChatFilters): boolean {
             f.type ||
             f.search ||
             f.includeLow ||
-            f.pinnedOnTop === false
+            f.pinnedOnTop === false ||
+            f.hideIgnored === true
     );
 }
 
@@ -430,6 +431,14 @@ export function InboxClient({
                                         onChange={(e) => setFilters((f) => ({ ...f, pinnedOnTop: e.target.checked ? undefined : false }))}
                                     />
                                     Fixadas no topo
+                                </label>
+                                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer px-2 py-1.5">
+                                    <input
+                                        type="checkbox"
+                                        checked={!filters.hideIgnored}
+                                        onChange={(e) => setFilters((f) => ({ ...f, hideIgnored: e.target.checked ? undefined : true }))}
+                                    />
+                                    Mostrar ignoradas
                                 </label>
                                 {hasActiveFilters(filters) && (
                                     <button

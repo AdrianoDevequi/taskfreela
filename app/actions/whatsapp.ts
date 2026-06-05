@@ -438,6 +438,8 @@ export type ChatFilters = {
     includeLow?: boolean;
     /** Se true (default), fixadas aparecem no topo. Se false, ordena só por mais recente. */
     pinnedOnTop?: boolean;
+    /** Se true, esconde conversas marcadas como ignoradas. Default false (aparecem com tag). */
+    hideIgnored?: boolean;
 };
 
 export async function listChats(filters: ChatFilters = {}) {
@@ -466,6 +468,7 @@ export async function listChats(filters: ChatFilters = {}) {
         else if (filters.status === "unread") where.unreadCount = { gt: 0 };
     }
     if (!filters.includeLow) where.priority = { not: "low" };
+    if (filters.hideIgnored) where.ignored = false;
     if (filters.search) {
         where.OR = [
             { name: { contains: filters.search } },
