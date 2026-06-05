@@ -71,6 +71,17 @@ type Message = {
 };
 
 const POLL_MS = 8000;
+const FILTERS_STORAGE_KEY = "taskfreela.whatsapp.filters.v1";
+
+function hasActiveFilters(f: ChatFilters): boolean {
+    return Boolean(
+        (f.instanceIds && f.instanceIds.length) ||
+            f.status ||
+            f.type ||
+            f.search ||
+            f.includeLow
+    );
+}
 
 function fmtTime(value: string | Date | null): string {
     if (!value) return "";
@@ -151,6 +162,31 @@ export function InboxClient({
     selectedRef.current = selected;
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const autoOpenedRef = useRef(false);
+    const hydratedRef = useRef(false);
+
+    // hidratação: lê filtros salvos no localStorage (1x ao montar)
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+            if (raw) {
+                const saved = JSON.parse(raw) as ChatFilters;
+                if (saved && typeof saved === "object") setFilters(saved);
+            }
+        } catch {
+            /* ignore */
+        }
+        hydratedRef.current = true;
+    }, []);
+
+    // persistência: salva no localStorage a cada mudança (após hidratar)
+    useEffect(() => {
+        if (!hydratedRef.current) return;
+        try {
+            localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+        } catch {
+            /* ignore */
+        }
+    }, [filters]);
 
     const refreshList = useCallback(async () => {
         try {
@@ -357,6 +393,15 @@ export function InboxClient({
                                     />
                                     Não salvos
                                 </label>
+                                {hasActiveFilters(filters) && (
+                                    <button
+                                        onClick={() => setFilters({})}
+                                        className="text-[11px] font-semibold text-primary hover:underline px-2 py-1.5 ml-auto"
+                                        title="Limpar todos os filtros"
+                                    >
+                                        Limpar
+                                    </button>
+                                )}
                             </div>
                         </div>
 
