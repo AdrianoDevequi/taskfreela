@@ -286,12 +286,6 @@ export function InboxClient({
     async function handleSend() {
         if (!selected || !reply.trim()) return;
         const text = reply.trim();
-        const ok = await confirm({
-            title: "Enviar mensagem",
-            message: `Enviar para ${selected.name || jidNumber(selected.remoteJid)}?\n\n"${text}"`,
-            confirmLabel: "Enviar",
-        });
-        if (!ok) return;
         setSending(true);
         try {
             const res = await sendReply(selected.id, text);
@@ -680,6 +674,10 @@ export function InboxClient({
                                             }
                                         }}
                                         rows={1}
+                                        spellCheck
+                                        lang="pt-BR"
+                                        autoCorrect="on"
+                                        autoCapitalize="sentences"
                                         placeholder="Escreva uma resposta... (Enter envia, Shift+Enter quebra linha)"
                                         className="flex-1 resize-none bg-muted/50 border border-input rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 max-h-32"
                                     />
