@@ -567,13 +567,19 @@ export function InboxClient({
                             ) : (
                                 chats.map((chat) => {
                                     const color = colorClasses(chat.color);
+                                    const rowBg =
+                                        selectionMode && selectedIds.has(chat.id)
+                                            ? "bg-primary/10"
+                                            : selected?.id === chat.id && !selectionMode
+                                            ? "bg-muted/60"
+                                            : chat.pinnedAt
+                                            ? "bg-amber-500/10 hover:bg-amber-500/20"
+                                            : "hover:bg-muted/40";
                                     return (
                                     <button
                                         key={chat.id}
                                         onClick={() => openChat(chat)}
-                                        className={`relative w-full text-left px-3 py-3 border-b border-border/60 hover:bg-muted/40 transition-colors flex gap-3 ${
-                                            selected?.id === chat.id && !selectionMode ? "bg-muted/60" : ""
-                                        } ${selectionMode && selectedIds.has(chat.id) ? "bg-primary/10" : ""} ${
+                                        className={`relative w-full text-left px-3 py-3 border-b border-border/60 transition-colors flex gap-3 ${rowBg} ${
                                             color ? `border-l-4 ${color.border} pl-2` : ""
                                         }`}
                                     >
