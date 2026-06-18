@@ -574,6 +574,8 @@ export function InboxClient({
                                             ? "bg-muted/60"
                                             : chat.pinnedAt
                                             ? "bg-amber-500/10 hover:bg-amber-500/20"
+                                            : chat.status === "pending" && !chat.ignored && !chat.archived
+                                            ? "bg-red-500/[0.06] hover:bg-red-500/[0.12]"
                                             : "hover:bg-muted/40";
                                     return (
                                     <button
