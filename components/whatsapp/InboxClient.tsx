@@ -413,6 +413,79 @@ export function InboxClient({
                     <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} /> Atualizar
                 </button>
             </div>
+            {instances.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <MultiDropdown
+                        allLabel="Todas as contas"
+                        values={filters.instanceIds || []}
+                        onChange={(ids) => setFilters((f) => ({ ...f, instanceIds: ids.length ? ids : undefined }))}
+                        options={instances.map((i) => ({ value: i.id, label: i.profileName || i.instanceName }))}
+                    />
+                    <Dropdown
+                        value={filters.status || ""}
+                        onChange={(v) => setFilters((f) => ({ ...f, status: (v || undefined) as ChatFilters["status"] }))}
+                        options={[
+                            { value: "", label: "Todos status" },
+                            { value: "pending", label: "Sem resposta" },
+                            { value: "unread", label: "Não lidas" },
+                            { value: "answered", label: "Respondidas" },
+                            { value: "resolved", label: "Resolvidas" },
+                            { value: "archived", label: "Arquivadas" },
+                        ]}
+                    />
+                    <Dropdown
+                        value={filters.type || ""}
+                        onChange={(v) => setFilters((f) => ({ ...f, type: (v || undefined) as ChatFilters["type"] }))}
+                        options={[
+                            { value: "", label: "Pessoas e grupos" },
+                            { value: "person", label: "Pessoas" },
+                            { value: "group", label: "Grupos" },
+                        ]}
+                    />
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer px-2 py-1.5">
+                        <input
+                            type="checkbox"
+                            checked={Boolean(filters.includeLow)}
+                            onChange={(e) => setFilters((f) => ({ ...f, includeLow: e.target.checked || undefined }))}
+                        />
+                        Não salvos
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer px-2 py-1.5">
+                        <input
+                            type="checkbox"
+                            checked={filters.pinnedOnTop !== false}
+                            onChange={(e) => setFilters((f) => ({ ...f, pinnedOnTop: e.target.checked ? undefined : false }))}
+                        />
+                        Fixadas no topo
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer px-2 py-1.5">
+                        <input
+                            type="checkbox"
+                            checked={!filters.hideIgnored}
+                            onChange={(e) => setFilters((f) => ({ ...f, hideIgnored: e.target.checked ? undefined : true }))}
+                        />
+                        Mostrar ignoradas
+                    </label>
+                    {hasActiveFilters(filters) && (
+                        <button
+                            onClick={() => setFilters({})}
+                            className="text-[11px] font-semibold text-primary hover:underline px-2 py-1.5 ml-auto"
+                            title="Limpar todos os filtros"
+                        >
+                            Limpar
+                        </button>
+                    )}
+                    <button
+                        onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+                        className={`text-[11px] font-semibold px-2 py-1.5 ${hasActiveFilters(filters) ? "" : "ml-auto"} ${
+                            selectionMode ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                        }`}
+                        title={selectionMode ? "Sair do modo seleção" : "Selecionar várias conversas"}
+                    >
+                        {selectionMode ? "Cancelar" : "Selecionar"}
+                    </button>
+                </div>
+            )}
             <WhatsappTabs />
 
             {instances.length === 0 ? (
@@ -429,8 +502,8 @@ export function InboxClient({
                 <div className="flex-1 min-h-0 flex gap-4">
                     {/* Conversation list */}
                     <div className={`w-full md:w-[380px] shrink-0 flex flex-col bg-card border border-border rounded-xl overflow-hidden ${selected ? "hidden md:flex" : "flex"}`}>
-                        {/* Filters */}
-                        <div className="p-3 border-b border-border space-y-2">
+                        {/* Search */}
+                        <div className="p-3 border-b border-border">
                             <div className="relative">
                                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                                 <input
@@ -439,77 +512,6 @@ export function InboxClient({
                                     placeholder="Buscar nome, número ou texto..."
                                     className="w-full bg-muted/50 border border-input rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 />
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                <MultiDropdown
-                                    allLabel="Todas as contas"
-                                    values={filters.instanceIds || []}
-                                    onChange={(ids) => setFilters((f) => ({ ...f, instanceIds: ids.length ? ids : undefined }))}
-                                    options={instances.map((i) => ({ value: i.id, label: i.profileName || i.instanceName }))}
-                                />
-                                <Dropdown
-                                    value={filters.status || ""}
-                                    onChange={(v) => setFilters((f) => ({ ...f, status: (v || undefined) as ChatFilters["status"] }))}
-                                    options={[
-                                        { value: "", label: "Todos status" },
-                                        { value: "pending", label: "Sem resposta" },
-                                        { value: "unread", label: "Não lidas" },
-                                        { value: "answered", label: "Respondidas" },
-                                        { value: "resolved", label: "Resolvidas" },
-                                        { value: "archived", label: "Arquivadas" },
-                                    ]}
-                                />
-                                <Dropdown
-                                    value={filters.type || ""}
-                                    onChange={(v) => setFilters((f) => ({ ...f, type: (v || undefined) as ChatFilters["type"] }))}
-                                    options={[
-                                        { value: "", label: "Pessoas e grupos" },
-                                        { value: "person", label: "Pessoas" },
-                                        { value: "group", label: "Grupos" },
-                                    ]}
-                                />
-                                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer px-2 py-1.5">
-                                    <input
-                                        type="checkbox"
-                                        checked={Boolean(filters.includeLow)}
-                                        onChange={(e) => setFilters((f) => ({ ...f, includeLow: e.target.checked || undefined }))}
-                                    />
-                                    Não salvos
-                                </label>
-                                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer px-2 py-1.5">
-                                    <input
-                                        type="checkbox"
-                                        checked={filters.pinnedOnTop !== false}
-                                        onChange={(e) => setFilters((f) => ({ ...f, pinnedOnTop: e.target.checked ? undefined : false }))}
-                                    />
-                                    Fixadas no topo
-                                </label>
-                                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer px-2 py-1.5">
-                                    <input
-                                        type="checkbox"
-                                        checked={!filters.hideIgnored}
-                                        onChange={(e) => setFilters((f) => ({ ...f, hideIgnored: e.target.checked ? undefined : true }))}
-                                    />
-                                    Mostrar ignoradas
-                                </label>
-                                {hasActiveFilters(filters) && (
-                                    <button
-                                        onClick={() => setFilters({})}
-                                        className="text-[11px] font-semibold text-primary hover:underline px-2 py-1.5 ml-auto"
-                                        title="Limpar todos os filtros"
-                                    >
-                                        Limpar
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
-                                    className={`text-[11px] font-semibold px-2 py-1.5 ${hasActiveFilters(filters) ? "" : "ml-auto"} ${
-                                        selectionMode ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                                    }`}
-                                    title={selectionMode ? "Sair do modo seleção" : "Selecionar várias conversas"}
-                                >
-                                    {selectionMode ? "Cancelar" : "Selecionar"}
-                                </button>
                             </div>
                         </div>
 
