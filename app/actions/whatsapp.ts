@@ -802,6 +802,64 @@ export async function setChatColor(chatId: string, color: string): Promise<Actio
     }
 }
 
+export type BulkChatAction = "resolve" | "archive" | "ignore" | "unignore";
+
+/** Aplica uma ação em várias conversas de uma vez (seleção múltipla na UI). */
+export async function bulkChatAction(
+    chatIds: string[],
+    action: BulkChatAction
+): Promise<ActionResult<{ count: number }>> {
+    try {
+        const userId = await requireUserId();
+        if (!Array.isArray(chatIds) || chatIds.length === 0) return { success: true, data: { count: 0 } };
+
+        // garante que todos os chats pertencem ao usuário
+        const owned = await prisma.whatsappChat.findMany({
+            where: { id: { in: chatIds }, instance: { userId } },
+            select: { id: true, taskId: true },
+        });
+        const ids = owned.map((c) => c.id);
+        if (ids.length === 0) return { success: false, error: "Nenhuma conversa encontrada." };
+
+        let result;
+        switch (action) {
+            case "resolve":
+                result = await prisma.whatsappChat.updateMany({
+                    where: { id: { in: ids } },
+                    data: { status: "resolved", resolvedAt: new Date(), firstPendingAt: null },
+                });
+                break;
+            case "archive": {
+                result = await prisma.whatsappChat.updateMany({
+                    where: { id: { in: ids } },
+                    data: { archived: true },
+                });
+                const taskIds = owned.map((c) => c.taskId).filter((x): x is number => x != null);
+                if (taskIds.length) {
+                    await prisma.task.updateMany({
+                        where: { id: { in: taskIds }, status: { not: "DONE" } },
+                        data: { status: "DONE" },
+                    });
+                    await prisma.whatsappChat.updateMany({ where: { id: { in: ids } }, data: { taskId: null } });
+                }
+                break;
+            }
+            case "ignore":
+                result = await prisma.whatsappChat.updateMany({ where: { id: { in: ids } }, data: { ignored: true } });
+                break;
+            case "unignore":
+                result = await prisma.whatsappChat.updateMany({ where: { id: { in: ids } }, data: { ignored: false } });
+                break;
+        }
+
+        revalidatePath("/whatsapp");
+        return { success: true, data: { count: result.count } };
+    } catch (error: any) {
+        console.error("[whatsapp] bulkChatAction:", error);
+        return { success: false, error: error?.message || "Erro ao aplicar ação." };
+    }
+}
+
 /** Define/limpa um nome customizado da conversa (aparece só no sistema; o original fica menor). */
 export async function setChatCustomName(chatId: string, customName: string): Promise<ActionResult> {
     try {

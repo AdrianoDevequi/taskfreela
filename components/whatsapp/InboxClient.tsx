@@ -24,6 +24,8 @@ import {
     Pin,
     PinOff,
     Tag,
+    CheckSquare,
+    Square,
 } from "lucide-react";
 import { WhatsappTabs } from "./WhatsappTabs";
 import { Dropdown, MultiDropdown } from "./FilterDropdown";
@@ -39,6 +41,8 @@ import {
     setChatCustomName,
     setChatPinned,
     setChatColor,
+    bulkChatAction,
+    type BulkChatAction,
     getMessageMedia,
     type ChatFilters,
 } from "@/app/actions/whatsapp";
@@ -178,6 +182,9 @@ export function InboxClient({
     const [refreshing, setRefreshing] = useState(false);
     const [editingName, setEditingName] = useState(false);
     const [colorPickerOpen, setColorPickerOpen] = useState(false);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkRunning, setBulkRunning] = useState(false);
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
     const selectedRef = useRef(selected);
@@ -266,6 +273,10 @@ export function InboxClient({
     }, [messages]);
 
     async function openChat(chat: Chat) {
+        if (selectionMode) {
+            toggleSelection(chat.id);
+            return;
+        }
         setSelected(chat);
         setMessages([]);
         setLoadingMsgs(true);
@@ -316,6 +327,47 @@ export function InboxClient({
         await setChatIgnored(chat.id, next);
         refreshList();
         if (selected?.id === chat.id) setSelected({ ...chat, ignored: next });
+    }
+
+    function toggleSelection(id: string) {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }
+
+    function selectAll() {
+        setSelectedIds(new Set(chats.map((c) => c.id)));
+    }
+
+    function exitSelectionMode() {
+        setSelectionMode(false);
+        setSelectedIds(new Set());
+    }
+
+    async function runBulk(action: BulkChatAction) {
+        if (selectedIds.size === 0) return;
+        setBulkRunning(true);
+        try {
+            const res = await bulkChatAction(Array.from(selectedIds), action);
+            if (res.success) {
+                const labels: Record<BulkChatAction, string> = {
+                    resolve: "marcada(s) como resolvida(s)",
+                    archive: "arquivada(s)",
+                    ignore: "ignorada(s)",
+                    unignore: "removida(s) das ignoradas",
+                };
+                toast.success(`${res.data?.count || 0} conversa(s) ${labels[action]}.`);
+                exitSelectionMode();
+                refreshList();
+            } else {
+                toast.error(res.error);
+            }
+        } finally {
+            setBulkRunning(false);
+        }
     }
 
     async function handlePin(chat: Chat) {
@@ -449,8 +501,60 @@ export function InboxClient({
                                         Limpar
                                     </button>
                                 )}
+                                <button
+                                    onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+                                    className={`text-[11px] font-semibold px-2 py-1.5 ${hasActiveFilters(filters) ? "" : "ml-auto"} ${
+                                        selectionMode ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                    title={selectionMode ? "Sair do modo seleção" : "Selecionar várias conversas"}
+                                >
+                                    {selectionMode ? "Cancelar" : "Selecionar"}
+                                </button>
                             </div>
                         </div>
+
+                        {/* Bulk actions bar */}
+                        {selectionMode && (
+                            <div className="px-3 py-2 border-b border-border bg-muted/30 flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-semibold text-foreground">
+                                    {selectedIds.size} selecionada{selectedIds.size === 1 ? "" : "s"}
+                                </span>
+                                <button
+                                    onClick={selectAll}
+                                    disabled={bulkRunning}
+                                    className="text-[10px] font-semibold text-primary hover:underline px-1.5 py-1 disabled:opacity-50"
+                                >
+                                    Selecionar todas ({chats.length})
+                                </button>
+                                <div className="ml-auto flex items-center gap-1">
+                                    <button
+                                        onClick={() => runBulk("resolve")}
+                                        disabled={bulkRunning || selectedIds.size === 0}
+                                        className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 disabled:opacity-50"
+                                        title="Marcar como resolvidas"
+                                    >
+                                        <Check size={12} /> Resolver
+                                    </button>
+                                    <button
+                                        onClick={() => runBulk("archive")}
+                                        disabled={bulkRunning || selectedIds.size === 0}
+                                        className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-muted text-foreground hover:bg-muted/70 disabled:opacity-50"
+                                        title="Arquivar"
+                                    >
+                                        <Archive size={12} /> Arquivar
+                                    </button>
+                                    <button
+                                        onClick={() => runBulk("ignore")}
+                                        disabled={bulkRunning || selectedIds.size === 0}
+                                        className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 disabled:opacity-50"
+                                        title="Ignorar"
+                                    >
+                                        <EyeOff size={12} /> Ignorar
+                                    </button>
+                                    {bulkRunning && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
+                                </div>
+                            </div>
+                        )}
 
                         {/* List */}
                         <div className="flex-1 overflow-y-auto">
@@ -466,14 +570,21 @@ export function InboxClient({
                                         key={chat.id}
                                         onClick={() => openChat(chat)}
                                         className={`relative w-full text-left px-3 py-3 border-b border-border/60 hover:bg-muted/40 transition-colors flex gap-3 ${
-                                            selected?.id === chat.id ? "bg-muted/60" : ""
-                                        } ${color ? `border-l-4 ${color.border} pl-2` : ""}`}
+                                            selected?.id === chat.id && !selectionMode ? "bg-muted/60" : ""
+                                        } ${selectionMode && selectedIds.has(chat.id) ? "bg-primary/10" : ""} ${
+                                            color ? `border-l-4 ${color.border} pl-2` : ""
+                                        }`}
                                     >
                                         {chat.pinnedAt && (
                                             <Pin
                                                 size={11}
                                                 className="absolute top-1.5 right-2 text-primary fill-primary/40 -rotate-45"
                                             />
+                                        )}
+                                        {selectionMode && (
+                                            <div className="shrink-0 flex items-center text-primary">
+                                                {selectedIds.has(chat.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                                            </div>
                                         )}
                                         <div className="relative shrink-0">
                                             <ChatAvatar url={chat.profilePicUrl} isGroup={chat.type === "group"} className="w-10 h-10 rounded-full" iconSize={18} />
