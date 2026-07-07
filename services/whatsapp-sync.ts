@@ -349,6 +349,25 @@ export async function syncInstance(instanceId: string): Promise<{ chats: number;
         data: { status: "resolved", resolvedAt: new Date() },
     });
 
+    // Rede de segurança: fecha as tarefas "Responder" de conversas que já saíram de
+    // pendente (ex.: você respondeu pelo celular e o webhook em tempo real falhou/perdeu
+    // o evento). No próximo sync a tarefa é finalizada mesmo assim.
+    const toClose = await prisma.whatsappChat.findMany({
+        where: {
+            instanceId,
+            taskId: { not: null },
+            OR: [{ status: { not: "pending" } }, { ignored: true }, { archived: true }],
+        },
+        select: { id: true, taskId: true },
+    });
+    for (const c of toClose) {
+        await prisma.task.updateMany({
+            where: { id: c.taskId!, status: { not: "DONE" } },
+            data: { status: "DONE" },
+        });
+        await prisma.whatsappChat.update({ where: { id: c.id }, data: { taskId: null } });
+    }
+
     await prisma.whatsappInstance.update({
         where: { id: instanceId },
         data: { lastSyncAt: new Date() },
