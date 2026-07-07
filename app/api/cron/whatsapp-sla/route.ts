@@ -13,6 +13,33 @@ import { AUTO_RESOLVE_DAYS, fetchProfilePicsInBatch, getInstanceWithClient } fro
  * Anti-ruído: não realerta a mesma conversa enquanto a espera atual não recomeçar
  * (compara slaAlertedAt com firstPendingAt). Ignora silenciadas (isMuted).
  */
+// ── Horário comercial (America/Sao_Paulo = UTC-3 fixo desde 2019) ────────────
+// Seg–Sex, 9h–18h. Ajuste estes valores se a regra mudar.
+const BR_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC-3
+const BIZ_START_HOUR = 9;
+const BIZ_END_HOUR = 18;
+const BIZ_DAYS = new Set([1, 2, 3, 4, 5]); // 0=Dom .. 6=Sáb
+// Só vira tarefa depois de acumular 5h dentro do horário comercial sem resposta.
+const BUSINESS_HOURS_FOR_TASK = 5;
+const BUSINESS_TASK_MS = BUSINESS_HOURS_FOR_TASK * 60 * 60 * 1000;
+
+/** Milissegundos de horário comercial decorridos entre `start` e `end`. */
+function businessMsBetween(start: Date, end: Date): number {
+    if (!start || end <= start) return 0;
+    const DAY = 24 * 60 * 60 * 1000;
+    // trabalha no "relógio BR": desloca o UTC e depois lê com getUTC*
+    const startBr = start.getTime() - BR_OFFSET_MS;
+    const endBr = end.getTime() - BR_OFFSET_MS;
+    let total = 0;
+    for (let dayStart = Math.floor(startBr / DAY) * DAY; dayStart <= endBr; dayStart += DAY) {
+        if (!BIZ_DAYS.has(new Date(dayStart).getUTCDay())) continue; // pula fim de semana
+        const from = Math.max(dayStart + BIZ_START_HOUR * 60 * 60 * 1000, startBr);
+        const to = Math.min(dayStart + BIZ_END_HOUR * 60 * 60 * 1000, endBr);
+        if (to > from) total += to - from;
+    }
+    return total;
+}
+
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
 
@@ -84,6 +111,9 @@ export async function GET(req: Request) {
 
             // cria a tarefa "Responder [Nome]" para cada pendente sem tarefa aberta
             for (const c of list) {
+                // só vira tarefa após 5h dentro do horário comercial (Seg–Sex 9h–18h)
+                if (!c.firstPendingAt || businessMsBetween(c.firstPendingAt, new Date()) < BUSINESS_TASK_MS) continue;
+
                 let hasOpenTask = false;
                 if (c.taskId) {
                     const t = await prisma.task.findUnique({ where: { id: c.taskId }, select: { status: true } });
@@ -95,7 +125,7 @@ export async function GET(req: Request) {
                 const task = await prisma.task.create({
                     data: {
                         title: `Responder ${name}`,
-                        description: `💬 Conversa no WhatsApp sem resposta há mais de ${human}.\n\nAbrir conversa: https://www.taskfreela.com.br/whatsapp?chat=${c.id}`,
+                        description: `💬 Conversa no WhatsApp sem resposta há mais de ${BUSINESS_HOURS_FOR_TASK}h de horário comercial.\n\nAbrir conversa: https://www.taskfreela.com.br/whatsapp?chat=${c.id}`,
                         dueDate,
                         status: "TODO",
                         isMandatory: true,
