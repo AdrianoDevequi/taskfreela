@@ -1,162 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma, withDB } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { evolutionService } from "@/services/evolution";
-import { pushService } from "@/services/push";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import {
+    sendTaskAssignmentNotification,
+    sendTaskApprovalNotification,
+    sendApprovalRequestNotification,
+    sendTaskRejectionNotification,
+} from "@/lib/task-notifications";
+import { createNextOccurrence } from "@/lib/task-recurrence";
 
 function getSession() {
     return auth();
-}
-
-async function sendTaskAssignmentNotification(taskId: number, assignedToId: string) {
-    try {
-        const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-        if (!settings || !settings.instanceName) return;
-
-        const task = await (prisma.task as any).findUnique({
-            where: { id: taskId },
-            include: {
-                assignedTo: { select: { name: true, whatsapp: true, notifyNewTasks: true } },
-                project: { select: { name: true } }
-            }
-        });
-
-        if (!task || !task.assignedTo?.whatsapp || !task.assignedTo.notifyNewTasks) return;
-
-        const date = format(task.dueDate, "dd/MM/yyyy", { locale: ptBR });
-        const projectInfo = task.project ? `\n*Projeto:* ${task.project.name}` : "";
-        
-        const message = `👋 Olá ${task.assignedTo.name}!\n\nUma nova tarefa foi atribuída a você:\n\n*Título:* ${task.title}${projectInfo}\n*Data de Entrega:* ${date}\n\nBoa sorte! 🚀\n\nhttps://www.taskfreela.com.br/`;
-
-        await evolutionService.sendText(
-            settings.instanceName,
-            task.assignedTo.whatsapp,
-            message
-        );
-
-        // Web Push Notification
-        await pushService.sendToUser(assignedToId, {
-            title: "Nova Tarefa Atribuída 📋",
-            body: `Você foi atribuído à tarefa: ${task.title}`,
-            url: `https://www.taskfreela.com.br/dashboard/?task=${task.id}`
-        });
-    } catch (error) {
-        console.error("Error sending WhatsApp notification:", error);
-    }
-}
-
-async function sendTaskApprovalNotification(taskId: number) {
-    try {
-        const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-        if (!settings || !settings.instanceName) return;
-
-        const task = await (prisma.task as any).findUnique({
-            where: { id: taskId },
-            include: {
-                assignedTo: { select: { id: true, name: true, whatsapp: true, notifyNewTasks: true } },
-                project: { select: { name: true } }
-            }
-        });
-
-        if (!task || !task.assignedTo?.whatsapp || !task.assignedTo.notifyNewTasks) return;
-
-        const projectInfo = task.project ? `\n*Projeto:* ${task.project.name}` : "";
-        const message = `✅ Olá ${task.assignedTo.name}!\n\nSua tarefa foi *aprovada*! 🎉\n\n*Título:* ${task.title}${projectInfo}\n\nParabéns pelo ótimo trabalho! 🚀\n\nhttps://www.taskfreela.com.br/`;
-
-        await evolutionService.sendText(
-            settings.instanceName,
-            task.assignedTo.whatsapp,
-            message
-        );
-
-        // Web Push Notification
-        await pushService.sendToUser(task.assignedTo.id, {
-            title: "Tarefa Aprovada ✅",
-            body: `Sua tarefa foi aprovada: ${task.title}`,
-            url: `https://www.taskfreela.com.br/dashboard/?task=${task.id}`
-        });
-    } catch (error) {
-        console.error("Error sending approval notification:", error);
-    }
-}
-
-async function sendApprovalRequestNotification(taskId: number) {
-    try {
-        const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-        if (!settings || !settings.instanceName) return;
-
-        const task = await (prisma.task as any).findUnique({
-            where: { id: taskId },
-            include: {
-                user: { select: { id: true, name: true, whatsapp: true, notifyNewTasks: true } },
-                project: { select: { name: true } }
-            }
-        });
-
-        if (!task || !task.user?.whatsapp || !task.user.notifyNewTasks) return;
-
-        // originalAssignedToId holds who actually did the task
-        let requesterName = "O responsável";
-        if (task.originalAssignedToId) {
-            const requester = await prisma.user.findUnique({
-                where: { id: task.originalAssignedToId },
-                select: { name: true }
-            });
-            if (requester?.name) requesterName = requester.name;
-        }
-
-        const projectInfo = task.project ? `\n*Projeto:* ${task.project.name}` : "";
-        const message = `⏳ Olá ${task.user.name}!\n\n*${requesterName}* está solicitando sua aprovação em uma tarefa:\n\n*Título:* ${task.title}${projectInfo}\n\nAcesse o sistema para aprovar ou rejeitar. 👇\n\nhttps://www.taskfreela.com.br/dashboard/?task=${task.id}`;
-
-        await evolutionService.sendText(
-            settings.instanceName,
-            task.user.whatsapp,
-            message
-        );
-
-        await pushService.sendToUser(task.user.id, {
-            title: "Tarefa aguardando aprovação ⏳",
-            body: `${requesterName} solicitou aprovação: ${task.title}`,
-            url: `https://www.taskfreela.com.br/dashboard/?task=${task.id}`
-        });
-    } catch (error) {
-        console.error("Error sending approval request notification:", error);
-    }
-}
-
-async function sendTaskRejectionNotification(taskId: number, originalAssignedToId: string) {
-    try {
-        const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-        if (!settings || !settings.instanceName) return;
-
-        const task = await (prisma.task as any).findUnique({
-            where: { id: taskId },
-            include: { project: { select: { name: true } } }
-        });
-        if (!task) return;
-
-        const assignee = await prisma.user.findUnique({
-            where: { id: originalAssignedToId },
-            select: { id: true, name: true, whatsapp: true, notifyNewTasks: true }
-        });
-        if (!assignee?.whatsapp || !assignee.notifyNewTasks) return;
-
-        const tomorrow = format(task.dueDate, "dd/MM/yyyy", { locale: ptBR });
-        const projectInfo = task.project ? `\n*Projeto:* ${task.project.name}` : "";
-        const message = `❌ Olá ${assignee.name}!\n\nSua tarefa foi *recusada* e precisa de ajustes:\n\n*Título:* ${task.title}${projectInfo}\n*Novo Prazo:* ${tomorrow}\n\nVerifique os comentários para mais detalhes. 👇\n\nhttps://www.taskfreela.com.br/dashboard/?task=${task.id}`;
-
-        await evolutionService.sendText(settings.instanceName, assignee.whatsapp, message);
-
-        await pushService.sendToUser(assignee.id, {
-            title: "Tarefa recusada ❌",
-            body: `Sua tarefa precisa de ajustes: ${task.title}`,
-            url: `https://www.taskfreela.com.br/dashboard/?task=${task.id}`
-        });
-    } catch (error) {
-        console.error("Error sending rejection notification:", error);
-    }
 }
 
 // GET: Fetch all tasks for the user's workspace
@@ -365,71 +219,8 @@ export function PUT(req: Request) {
         }
 
         // Automatic Recurrence Logic: If marked as DONE and it's a recurring task
-        const t = task as any;
-        if (status === "DONE" && existing.status !== "DONE" && t.isRecurring) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            let nextDueDate: Date | null = null;
-            const formatDateLocal = (d: Date) => {
-                const y = d.getFullYear();
-                const m = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                return new Date(`${y}-${m}-${day}T12:00:00`);
-            };
-
-            if (t.recurrencePattern === "DAILY") {
-                const next = new Date(today);
-                next.setDate(next.getDate() + 1);
-                nextDueDate = formatDateLocal(next);
-            } else if (t.recurrencePattern === "WEEKLY") {
-                const next = new Date(today);
-                next.setDate(next.getDate() + 7);
-                nextDueDate = formatDateLocal(next);
-            } else if (t.recurrencePattern === "MONTHLY") {
-                const next = new Date(today);
-                next.setMonth(next.getMonth() + 1);
-                nextDueDate = formatDateLocal(next);
-            } else if (t.recurrencePattern === "CUSTOM_DAYS" && t.recurrenceDays) {
-                const selectedDays = t.recurrenceDays.split(',').map(Number);
-                if (selectedDays.length > 0) {
-                    let daysToAdd = 1;
-                    while (daysToAdd <= 7) {
-                        const checkDate = new Date(today);
-                        checkDate.setDate(checkDate.getDate() + daysToAdd);
-                        if (selectedDays.includes(checkDate.getDay())) {
-                            nextDueDate = formatDateLocal(checkDate);
-                            break;
-                        }
-                        daysToAdd++;
-                    }
-                } else {
-                    const next = new Date(today);
-                    next.setDate(next.getDate() + 1);
-                    nextDueDate = formatDateLocal(next);
-                }
-            }
-
-            if (nextDueDate) {
-                // Create the next occurrence
-                await prisma.task.create({
-                    data: {
-                        title: t.title,
-                        description: t.description,
-                        dueDate: nextDueDate,
-                        status: "TODO",
-                        estimatedTime: t.estimatedTime,
-                        isMandatory: t.isMandatory,
-                        isRecurring: t.isRecurring,
-                        recurrencePattern: t.recurrencePattern,
-                        recurrenceDays: t.recurrenceDays,
-                        workspaceId: t.workspaceId,
-                        projectId: t.projectId,
-                        assignedToId: t.assignedToId,
-                        userId: t.userId, // Maintain the original creator
-                    } as any
-                });
-            }
+        if (status === "DONE" && existing.status !== "DONE") {
+            await createNextOccurrence(task);
         }
 
         return NextResponse.json(task);
