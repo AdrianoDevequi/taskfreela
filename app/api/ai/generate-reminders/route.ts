@@ -1,8 +1,24 @@
-
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
+import {
+    openai,
+    OPENAI_MODEL,
+    assertOpenAIKey,
+    transcribeAudio,
+    stripJsonFences,
+} from "@/lib/openai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const SYSTEM_PROMPT = `
+Você é um assistente pessoal.
+Receberá a transcrição de um áudio com anotações e deve extrair os lembretes/tarefas distintos.
+O usuário pode dizer coisas como "Primeiro comprar leite, depois ligar para o João".
+Separe isso em itens diferentes.
+
+Responda SOMENTE com um objeto JSON no formato:
+{"reminders": ["Comprar leite", "Ligar para o João"]}
+
+Escreva tudo em Português (Brasil).
+Seja conciso. Não use markdown.
+`;
 
 export async function POST(req: Request) {
     try {
@@ -13,45 +29,32 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const base64Audio = buffer.toString("base64");
+        assertOpenAIKey();
 
-        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        const transcript = await transcribeAudio(file);
 
-        const prompt = `
-            You are a personal assistant.
-            Listen to this audio notes and extract distinct reminders/tasks.
-            The user might say things like "First buy milk, then call John".
-            Split these into separate items.
+        const completion = await openai.chat.completions.create({
+            model: OPENAI_MODEL,
+            response_format: { type: "json_object" },
+            messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                { role: "user", content: `Transcrição:\n\n"""${transcript}"""` },
+            ],
+        });
 
-            Return ONLY a valid JSON Array of strings.
-            Example: ["Comprar leite", "Ligar para o João"]
-
-            Translate everything to Portuguese (Brazil).
-            Keep it concise.
-            Do NOT return markdown. Just the raw JSON array.
-        `;
-
-        const result = await model.generateContent([
-            prompt,
-            {
-                inlineData: {
-                    data: base64Audio,
-                    mimeType: file.type,
-                },
-            },
-        ]);
-
-        const response = await result.response;
-        const text = response.text();
-        const cleanedText = text.replace(/```json|```/g, "").trim();
-        const reminders = JSON.parse(cleanedText);
+        const text = completion.choices[0]?.message?.content || "";
+        const parsed = JSON.parse(stripJsonFences(text));
+        const reminders = Array.isArray(parsed) ? parsed : parsed.reminders || [];
 
         return NextResponse.json({ reminders });
-
     } catch (error) {
         console.error("AI processing error:", error);
-        return NextResponse.json({ error: "Failed to process audio" }, { status: 500 });
+        return NextResponse.json(
+            {
+                error: "Failed to process audio",
+                details: error instanceof Error ? error.message : String(error),
+            },
+            { status: 500 }
+        );
     }
 }

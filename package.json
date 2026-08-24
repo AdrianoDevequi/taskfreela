@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
-    "@google/generative-ai": "^0.24.1",
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/extension-accelerate": "^3.0.1",
@@ -24,6 +23,7 @@
     "lucide-react": "^0.562.0",
     "next": "16.1.2",
     "next-auth": "^5.0.0-beta.30",
+    "openai": "^7.5.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.1",

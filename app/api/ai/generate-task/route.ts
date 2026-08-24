@@ -1,7 +1,24 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
+import {
+    openai,
+    OPENAI_MODEL,
+    assertOpenAIKey,
+    fileToDataUrl,
+    transcribeAudio,
+    stripJsonFences,
+} from "@/lib/openai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const SYSTEM_PROMPT = `
+Você é um assistente que transforma prints de conversa ou áudios em tarefas.
+
+Extraia os detalhes da tarefa e devolva SOMENTE um objeto JSON válido com os campos:
+- title: um resumo conciso da tarefa (máx. 50 caracteres).
+- description: uma descrição clara do que precisa ser feito, com base na conversa/texto. Formate de forma legível.
+- estimatedTime: um palpite baseado na complexidade ("Rápido", "Mediano" ou "Demorado"). Padrão: "Mediano".
+
+Escreva tudo em Português (Brasil).
+Não use formatação markdown. Apenas o JSON puro.
+`;
 
 export async function POST(req: Request) {
     try {
@@ -12,59 +29,56 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
-        if (!process.env.GEMINI_API_KEY) {
-            return NextResponse.json({
-                error: "GEMINI_API_KEY not configured",
-                details: "Please add your API Key to the .env file"
-            }, { status: 500 });
-        }
+        assertOpenAIKey();
 
-        // Convert file to base64
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const base64Image = buffer.toString("base64");
+        const isAudio = (file.type || "").startsWith("audio/");
 
-        // Prepare Prompt
-        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        const userContent = isAudio
+            ? [
+                  {
+                      type: "text" as const,
+                      text: `Transcrição do áudio enviado pelo usuário:\n\n"""${await transcribeAudio(
+                          file
+                      )}"""`,
+                  },
+              ]
+            : [
+                  {
+                      type: "text" as const,
+                      text: "Analise esta imagem (print de conversa, anotação ou documento) e extraia a tarefa.",
+                  },
+                  {
+                      type: "image_url" as const,
+                      image_url: { url: await fileToDataUrl(file) },
+                  },
+              ];
 
-        const prompt = `
-            Analyze this media (image or audio).
-            If it's an audio, transcribe it and extract the task details.
-            If it's an image, extract text/context.
+        const completion = await openai.chat.completions.create({
+            model: OPENAI_MODEL,
+            response_format: { type: "json_object" },
+            messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                { role: "user", content: userContent },
+            ],
+        });
 
-            Extract the task details and return ONLY a valid JSON object with the following fields:
-            - title: A concise summary of the task (max 50 chars).
-            - description: A clear description of what needs to be done based on the conversation/text. Format it nicely.
-            - estimatedTime: Make a best guess based on complexity ("Rápido", "Mediano", or "Demorado"). defaults to "Mediano".
-            
-            Do NOT return markdown formatting (like \`\`\`json). Just the raw JSON string.
-            Translate everything to Portuguese (Brazil).
-        `;
-
-        const mediaPart = {
-            inlineData: {
-                data: base64Image,
-                mimeType: file.type,
-            },
-        };
-
-        const result = await model.generateContent([prompt, mediaPart]);
-        const response = await result.response;
-        const text = response.text();
-
-        // Clean up markdown if present
-        const jsonString = text.replace(/```json/g, "").replace(/```/g, "").trim();
-        const data = JSON.parse(jsonString);
+        const text = completion.choices[0]?.message?.content || "";
+        const data = JSON.parse(stripJsonFences(text));
 
         // Enforce Rule: Due Date is always 2 days from now
         const today = new Date();
         today.setDate(today.getDate() + 2);
-        data.dueDate = today.toISOString().split('T')[0];
+        data.dueDate = today.toISOString().split("T")[0];
 
         return NextResponse.json(data);
-
     } catch (error) {
         console.error("AI processing error:", error);
-        return NextResponse.json({ error: "Failed to process image", details: error instanceof Error ? error.message : String(error) }, { status: 500 });
+        return NextResponse.json(
+            {
+                error: "Failed to process file",
+                details: error instanceof Error ? error.message : String(error),
+            },
+            { status: 500 }
+        );
     }
 }
