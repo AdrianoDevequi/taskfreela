@@ -1,14 +1,14 @@
 import { handleMcpRequest, MCP_CORS } from "@/lib/mcp-server";
 
 /**
- * Mesmo endpoint MCP, com a chave no caminho da URL — para clientes que não
- * deixam configurar header. Prefira /api/mcp com `x-api-key`.
+ * Endpoint MCP padrão: a chave vai no header
+ * (`x-api-key: <chave>` ou `Authorization: Bearer <chave>`).
  */
-export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
-    const { token } = await params;
-    return handleMcpRequest(req, token);
+export async function POST(req: Request) {
+    return handleMcpRequest(req);
 }
 
+/** O transporte permite um canal SSE só de servidor→cliente; aqui não é usado. */
 export async function GET() {
     return new Response("Method Not Allowed", { status: 405, headers: MCP_CORS });
 }

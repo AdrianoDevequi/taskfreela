@@ -7,7 +7,7 @@ Duas camadas, mesma base:
 
 | Camada | Pra quê |
 | --- | --- |
-| **MCP** (`/api/mcp/<CHAVE>`) | plugar direto no chat do Claude (app/claude.ai e Claude Code) |
+| **MCP** (`/api/mcp`) | plugar direto no chat do Claude (app/claude.ai e Claude Code) |
 | **REST** (`/api/external/*`) | scripts, automações, n8n, Zapier, WhatsApp, o que for |
 
 ---
@@ -36,20 +36,21 @@ node -e "console.log('tf_'+require('crypto').randomBytes(24).toString('hex'))"
 
 ### App do Claude / claude.ai
 
-Configurações → **Conectores** → *Adicionar conector personalizado* → URL:
+Configurações → **Conectores** → *Adicionar conector personalizado*:
 
-```
-https://www.taskfreela.com.br/api/mcp/SUA_CHAVE_AQUI
-```
-
-A chave vai **na URL** porque a tela de conectores não permite header customizado —
-então trate essa URL como senha (não cole em print, issue, grupo de WhatsApp).
+- **URL:** `https://www.taskfreela.com.br/api/mcp`
+- **Autenticação:** Nenhum
+- **Cabeçalho de requisição:** nome `x-api-key`, valor a chave (`tf_...`)
 
 ### Claude Code
 
 ```bash
-claude mcp add --scope user --transport http taskfreela https://www.taskfreela.com.br/api/mcp/SUA_CHAVE_AQUI
+claude mcp add --scope user --transport http taskfreela https://www.taskfreela.com.br/api/mcp --header "x-api-key: SUA_CHAVE_AQUI"
 ```
+
+> Para clientes MCP que não deixam configurar header, existe a variante com a chave
+> no caminho: `https://www.taskfreela.com.br/api/mcp/SUA_CHAVE_AQUI`. Funciona igual,
+> mas aí a URL inteira é segredo — evite print, issue e grupo de WhatsApp.
 
 ### Ferramentas que o Claude ganha
 
@@ -125,6 +126,7 @@ Filtros de `GET /tasks`: `status`, `assignee`, `project`, `search`, `overdue=tru
 - `app/api/external/tasks/route.ts` — REST de tarefas (POST/GET/PUT/DELETE).
 - `app/api/external/comments/route.ts` — comentários.
 - `app/api/external/context/route.ts` — membros, projetos, data de hoje.
-- `app/api/mcp/[token]/route.ts` — servidor MCP (JSON-RPC sobre HTTP, sem dependência nova).
+- `lib/mcp-server.ts` — servidor MCP (JSON-RPC sobre HTTP, sem dependência nova).
+- `app/api/mcp/route.ts` — MCP com a chave no header; `app/api/mcp/[token]/route.ts` — chave na URL.
 - `lib/task-notifications.ts` e `lib/task-recurrence.ts` — avisos e recorrência, compartilhados
   entre a tela (`/api/tasks`) e a API externa, pra não haver dois comportamentos diferentes.
