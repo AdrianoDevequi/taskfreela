@@ -268,6 +268,43 @@ export async function getWorkspaceContext() {
     };
 }
 
+/* ------------------------------------------------------------ whatsapp --- */
+
+/**
+ * Conversas aguardando resposta nas instâncias do dono da chave.
+ *
+ * "Sem resposta" segue o mesmo critério do cron de SLA: chat `pending`, fora
+ * os silenciados, ignorados e arquivados. As instâncias são por usuário, então
+ * a contagem é a do usuário da API — não a do workspace inteiro.
+ */
+export async function getWhatsappSummary() {
+    const actor = await getActor();
+
+    const where = {
+        instance: { userId: actor.userId },
+        status: "pending",
+        isMuted: false,
+        ignored: false,
+        archived: false,
+    };
+
+    const [pendentes, prioridadeAlta, maisAntiga] = await Promise.all([
+        prisma.whatsappChat.count({ where }),
+        prisma.whatsappChat.count({ where: { ...where, priority: "high" } }),
+        prisma.whatsappChat.findFirst({
+            where: { ...where, firstPendingAt: { not: null } },
+            orderBy: { firstPendingAt: "asc" },
+            select: { firstPendingAt: true },
+        }),
+    ]);
+
+    return {
+        pendentes,
+        prioridadeAlta,
+        esperandoDesde: maisAntiga?.firstPendingAt ?? null,
+    };
+}
+
 /* ------------------------------------------------------------- tarefas --- */
 
 export type CreateTaskInput = {

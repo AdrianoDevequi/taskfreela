@@ -103,7 +103,15 @@ curl -X DELETE "https://www.taskfreela.com.br/api/external/tasks?id=312" \
 
 # contexto (membros, projetos, data de hoje)
 curl https://www.taskfreela.com.br/api/external/context -H "Authorization: Bearer $TASKFRELA_API_KEY"
+
+# whatsapp (conversas aguardando resposta)
+curl https://www.taskfreela.com.br/api/external/whatsapp -H "Authorization: Bearer $TASKFRELA_API_KEY"
 ```
+
+`GET /whatsapp` devolve `pendentes`, `prioridadeAlta` e `esperandoDesde` (o início da
+espera mais antiga). O critério é o mesmo do cron de SLA: chat `pending`, fora os
+silenciados, ignorados e arquivados. As instâncias são por usuário, então a contagem
+é a do dono da chave, não a do workspace.
 
 ### Campos de `POST /tasks`
 
@@ -126,6 +134,7 @@ Filtros de `GET /tasks`: `status`, `assignee`, `project`, `search`, `overdue=tru
 - `app/api/external/tasks/route.ts` — REST de tarefas (POST/GET/PUT/DELETE).
 - `app/api/external/comments/route.ts` — comentários.
 - `app/api/external/context/route.ts` — membros, projetos, data de hoje.
+- `app/api/external/whatsapp/route.ts` — conversas do WhatsApp aguardando resposta.
 - `lib/mcp-server.ts` — servidor MCP (JSON-RPC sobre HTTP, sem dependência nova).
 - `app/api/mcp/route.ts` — MCP com a chave no header; `app/api/mcp/[token]/route.ts` — chave na URL.
 - `lib/task-notifications.ts` e `lib/task-recurrence.ts` — avisos e recorrência, compartilhados
