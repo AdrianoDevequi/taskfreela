@@ -113,6 +113,10 @@ espera mais antiga). O critério é o mesmo do cron de SLA: chat `pending`, fora
 silenciados, ignorados e arquivados. As instâncias são por usuário, então a contagem
 é a do dono da chave, não a do workspace.
 
+`GET /context` traz `tarefasAbertas` e `tarefasAtrasadas` como contagem real. Prefira
+esses números a medir o tamanho da resposta de `GET /tasks`, que é paginada com teto
+de 100 e satura em silêncio.
+
 ### Campos de `POST /tasks`
 
 | Campo | Obrigatório | Observação |
@@ -133,7 +137,7 @@ Filtros de `GET /tasks`: `status`, `assignee`, `project`, `search`, `overdue=tru
 - `lib/external-api.ts` — regra de negócio (auth por chave, parsing de data, busca de membro/projeto, CRUD).
 - `app/api/external/tasks/route.ts` — REST de tarefas (POST/GET/PUT/DELETE).
 - `app/api/external/comments/route.ts` — comentários.
-- `app/api/external/context/route.ts` — membros, projetos, data de hoje.
+- `app/api/external/context/route.ts` — membros, projetos, data de hoje e os totais de tarefas.
 - `app/api/external/whatsapp/route.ts` — conversas do WhatsApp aguardando resposta.
 - `lib/mcp-server.ts` — servidor MCP (JSON-RPC sobre HTTP, sem dependência nova).
 - `app/api/mcp/route.ts` — MCP com a chave no header; `app/api/mcp/[token]/route.ts` — chave na URL.

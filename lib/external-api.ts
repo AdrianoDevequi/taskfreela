@@ -244,7 +244,7 @@ async function resolveProject(workspaceId: string, query?: string | null) {
 /** Quem existe e o que existe no workspace — ajuda a IA a preencher os campos. */
 export async function getWorkspaceContext() {
     const actor = await getActor();
-    const [members, projects, openTasks] = await Promise.all([
+    const [members, projects, openTasks, overdueTasks] = await Promise.all([
         listMembers(actor.workspaceId),
         prisma.project.findMany({
             where: { workspaceId: actor.workspaceId },
@@ -253,6 +253,14 @@ export async function getWorkspaceContext() {
         }),
         prisma.task.count({
             where: { workspaceId: actor.workspaceId, status: { notIn: ["DONE", "APPROVED"] } },
+        }),
+        // Mesmo filtro do `overdue=true` de listTasks, mas contando em vez de paginar.
+        prisma.task.count({
+            where: {
+                workspaceId: actor.workspaceId,
+                status: { notIn: ["DONE", "APPROVED"] },
+                dueDate: { lt: todayAtNoon() },
+            },
         }),
     ]);
 
@@ -263,6 +271,7 @@ export async function getWorkspaceContext() {
         membros: members.map((m) => ({ id: m.id, nome: m.name, email: m.email })),
         projetos: projects.map((p) => ({ id: p.id, nome: p.name, status: p.status })),
         tarefasAbertas: openTasks,
+        tarefasAtrasadas: overdueTasks,
         statusPossiveis: ["TODO", "IN_PROGRESS", "PENDING_APPROVAL", "DONE", "APPROVED"],
         temposEstimados: ["Rápido", "Mediano", "Demorado"],
     };
