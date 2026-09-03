@@ -14,7 +14,14 @@ import {
     isGroupJid,
 } from "@/services/whatsapp-sync";
 
-const WEBHOOK_EVENTS = ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE", "CONTACTS_UPSERT"];
+const WEBHOOK_EVENTS = [
+    "MESSAGES_UPSERT",
+    "MESSAGES_UPDATE",
+    "SEND_MESSAGE",
+    "CHATS_UPDATE",
+    "CONNECTION_UPDATE",
+    "CONTACTS_UPSERT",
+];
 
 type ActionResult<T = undefined> = { success: true; data?: T } | { success: false; error: string };
 

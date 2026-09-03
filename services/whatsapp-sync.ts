@@ -413,7 +413,27 @@ export async function ingestWebhookEvent(instanceId: string, payload: any): Prom
         return;
     }
 
-    if (event === "messages.upsert") {
+    if (event === "chats.update" || event === "chats.upsert") {
+        // Conversa lida no celular/WhatsApp Web: a Evolution manda o contador
+        // atualizado aqui. Sem isso o badge de não lidas só zerava no sync completo.
+        const items: any[] = Array.isArray(payload?.data) ? payload.data : [payload?.data].filter(Boolean);
+        for (const c of items) {
+            const remoteJid: string = c?.remoteJid || c?.id;
+            if (!remoteJid || remoteJid === BROADCAST_JID) continue;
+            const raw = c?.unreadMessages ?? c?.unreadCount ?? c?.unread;
+            if (raw === undefined || raw === null) continue;
+            const unreadCount = Math.max(0, Number(raw) || 0);
+            await prisma.whatsappChat.updateMany({
+                where: { instanceId, remoteJid },
+                data: { unreadCount },
+            });
+        }
+        return;
+    }
+
+    // send.message: mensagem enviada por nós (pelo app, pelo celular ou pela API).
+    // A Evolution nem sempre reemite essas em messages.upsert, então tratamos as duas.
+    if (event === "messages.upsert" || event === "send.message") {
         const items: any[] = Array.isArray(payload?.data) ? payload.data : [payload?.data].filter(Boolean);
         for (const m of items) {
             await ingestMessage(instanceId, m);
