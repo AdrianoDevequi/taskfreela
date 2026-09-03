@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { closesConversation } from "@/services/whatsapp-triage";
 import { decrypt } from "@/lib/crypto";
 import { createWhatsappClient, WhatsappClient } from "@/services/whatsapp-client";
 
@@ -491,6 +492,20 @@ async function ingestMessage(instanceId: string, m: any): Promise<void> {
         status = existing?.status === "resolved" ? "resolved" : "answered";
         firstPendingAt = null;
         unreadCount = 0;
+    } else if (
+        closesConversation({
+            preview,
+            messageType,
+            previousFromMe: existing?.lastFromMe,
+            previousAt: existing?.lastMessageAt ?? null,
+            when,
+        })
+    ) {
+        // A mensagem só encerra o assunto ("blz", "obrigado", reação logo depois
+        // de nós falarmos): não abre pendência, não entra no SLA nem vira tarefa.
+        status = "resolved";
+        firstPendingAt = null;
+        unreadCount = unreadCount + 1;
     } else {
         // Mensagem de entrada → abre/mantém pendência.
         status = "pending";
@@ -499,6 +514,9 @@ async function ingestMessage(instanceId: string, m: any): Promise<void> {
         }
         unreadCount = unreadCount + 1;
     }
+
+    // "resolved" precisa de resolvedAt >= lastMessageAt, senão o syncInstance reabre.
+    const resolvedAt = status === "resolved" ? when : null;
 
     const chat = await prisma.whatsappChat.upsert({
         where: { instanceId_remoteJid: { instanceId, remoteJid } },
@@ -511,6 +529,7 @@ async function ingestMessage(instanceId: string, m: any): Promise<void> {
             unreadCount,
             priority,
             status,
+            resolvedAt,
             firstPendingAt,
             lastResponseSeconds,
         },
@@ -525,6 +544,7 @@ async function ingestMessage(instanceId: string, m: any): Promise<void> {
             unreadCount,
             priority,
             status,
+            resolvedAt,
             firstPendingAt,
             lastResponseSeconds,
         },
