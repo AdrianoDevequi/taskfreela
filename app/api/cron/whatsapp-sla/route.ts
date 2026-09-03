@@ -23,6 +23,19 @@ const BIZ_DAYS = new Set([1, 2, 3, 4, 5]); // 0=Dom .. 6=Sáb
 const BUSINESS_HOURS_FOR_TASK = 5;
 const BUSINESS_TASK_MS = BUSINESS_HOURS_FOR_TASK * 60 * 60 * 1000;
 
+// ── Janela de cobrança ───────────────────────────────────────────────────────
+// Não incomodar de madrugada, depois das 19h, nem aos domingos.
+const NOTIFY_START_HOUR = 8;
+const NOTIFY_END_HOUR = 19;
+
+/** Pode cobrar agora? (relógio de São Paulo; domingo nunca) */
+function canNotifyNow(now: Date = new Date()): boolean {
+    const br = new Date(now.getTime() - BR_OFFSET_MS);
+    if (br.getUTCDay() === 0) return false; // domingo
+    const hour = br.getUTCHours();
+    return hour >= NOTIFY_START_HOUR && hour < NOTIFY_END_HOUR;
+}
+
 /** Milissegundos de horário comercial decorridos entre `start` e `end`. */
 function businessMsBetween(start: Date, end: Date): number {
     if (!start || end <= start) return 0;
@@ -101,6 +114,8 @@ export async function GET(req: Request) {
         let tasksCreated = 0;
         let usersNotified = 0;
         let chatsAlerted = 0;
+        let quietSkipped = 0;
+        const notifyAllowed = canNotifyNow();
 
         for (const [userId, list] of byUser) {
             const user = await prisma.user.findUnique({
@@ -144,6 +159,13 @@ export async function GET(req: Request) {
                 (c) => !c.slaAlertedAt || (c.firstPendingAt != null && c.slaAlertedAt < c.firstPendingAt)
             );
             if (fresh.length === 0) continue;
+
+            // fora da janela (antes das 8h, depois das 19h, domingo): segura a cobrança.
+            // Não marca slaAlertedAt de propósito — assim ela sai na próxima janela.
+            if (!notifyAllowed) {
+                quietSkipped += fresh.length;
+                continue;
+            }
 
             const namesList = list
                 .slice(0, 10)
@@ -208,6 +230,8 @@ export async function GET(req: Request) {
             scanned: pending.length,
             usersNotified,
             chatsAlerted,
+            quietSkipped,
+            notifyAllowed,
         });
     } catch (error) {
         console.error("[cron whatsapp-sla] error:", error);
